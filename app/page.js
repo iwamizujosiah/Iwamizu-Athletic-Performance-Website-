@@ -1,15 +1,14 @@
-import Image from 'next/image';
 
 export default function Home() {
   return (
     <main>
       <header style={{ padding: '20px 50px' }}>
-        <Image 
+        {/* Testing with standard img tag to bypass next/image */}
+        <img 
           src="/logo.png" 
           alt="Iwamizu Athletic Performance" 
-          width={150} 
-          height={150} 
-          priority 
+          width="150" 
+          height="150" 
         />
       </header>
 
