@@ -1,27 +1,28 @@
-/* app/globals.css */
 :root {
-  --primary-color: #0070f3; /* You can change this to your preferred brand color */
-  --text-color: #333;
+  --bg-color: #0a0a0a;
+  --accent-red: #ff0000;
+  --text-white: #ffffff;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  color: var(--text-color);
+  background-color: var(--bg-color);
+  color: var(--text-white);
   margin: 0;
-  padding: 0;
+  font-family: sans-serif; /* Use a bold, clean font if possible */
+}
+
+.nav-link {
+  color: var(--text-white);
+  text-decoration: none;
+  font-weight: bold;
 }
 
 .cta-button {
-  background-color: var(--primary-color);
+  background-color: var(--accent-red);
   color: white;
-  padding: 12px 24px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 6px;
-  cursor: pointer;
+  text-transform: uppercase;
   font-weight: bold;
-  font-size: 16px;
-}
-
-.cta-button:hover {
-  background-color: #0051b3;
+  cursor: pointer;
 }
