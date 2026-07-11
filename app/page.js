@@ -4,18 +4,18 @@ export default function Home() {
   const brandRed = "#ff0000";
 
   return (
-    <main style={{ fontFamily: 'sans-serif', lineHeight: '1.6', backgroundColor: '#000', color: '#fff' }}>
+    <main style={{ fontFamily: 'sans-serif', lineHeight: '1.6', backgroundColor: '#000', color: brandRed }}>
       
       {/* Header */}
       <header style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${brandRed}` }}>
         <img src="/logo.png" alt="Logo" style={{ height: '50px' }} />
         <nav style={{ display: 'flex', gap: '20px' }}>
-          <a href="#philosophy" style={{ color: '#fff', textDecoration: 'none' }}>Philosophy</a>
-          <a href="#coaching" style={{ color: '#fff', textDecoration: 'none' }}>Coaching</a>
-          <a href="#about" style={{ color: '#fff', textDecoration: 'none' }}>About</a>
-          <a href="#journal" style={{ color: '#fff', textDecoration: 'none' }}>Journal</a>
-          <a href="#faq" style={{ color: '#fff', textDecoration: 'none' }}>FAQ</a>
-          <a href="#contact" style={{ color: '#fff', textDecoration: 'none' }}>Contact</a>
+          <a href="#philosophy" style={{ color: brandRed, textDecoration: 'none' }}>Philosophy</a>
+          <a href="#coaching" style={{ color: brandRed, textDecoration: 'none' }}>Coaching</a>
+          <a href="#about" style={{ color: brandRed, textDecoration: 'none' }}>About</a>
+          <a href="#journal" style={{ color: brandRed, textDecoration: 'none' }}>Journal</a>
+          <a href="#faq" style={{ color: brandRed, textDecoration: 'none' }}>FAQ</a>
+          <a href="#contact" style={{ color: brandRed, textDecoration: 'none' }}>Contact</a>
           <a href={clientPortalUrl} style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>Client Portal</a>
           <a href={applicationUrl} style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>Apply</a>
         </nav>
@@ -24,13 +24,13 @@ export default function Home() {
       {/* Philosophy */}
       <section id="philosophy" style={{ padding: '80px 20px', textAlign: 'center', background: '#111' }}>
         <h2 style={{ color: brandRed }}>Philosophy</h2>
-        <p style={{ maxWidth: '800px', margin: 'auto' }}>We cultivate better people, not just better athletes. By focusing on conduct, intention, and high standards of accountability, we ensure excellence in every rep.</p>
+        <p style={{ maxWidth: '800px', margin: 'auto', color: brandRed }}>We cultivate better people, not just better athletes. By focusing on conduct, intention, and high standards of accountability, we ensure excellence in every rep.</p>
       </section>
 
       {/* Coaching */}
       <section id="coaching" style={{ padding: '80px 20px' }}>
         <h2 style={{ textAlign: 'center', color: brandRed }}>Coaching</h2>
-        <div style={{ maxWidth: '800px', margin: 'auto' }}>
+        <div style={{ maxWidth: '800px', margin: 'auto', color: brandRed }}>
           <p>We provide structured, purposeful athletic programming based on these 5 Principles:</p>
           <ol>
             <li><strong>Master the Basics:</strong> Perfection in simple movements creates the foundation for elite performance.</li>
@@ -45,19 +45,19 @@ export default function Home() {
       {/* About */}
       <section id="about" style={{ padding: '80px 20px', background: '#111' }}>
         <h2 style={{ textAlign: 'center', color: brandRed }}>About</h2>
-        <p style={{ maxWidth: '800px', margin: 'auto' }}>Iwamizu Athletic Performance. Professional coaching driven by data, accountability, and the development of the athlete's total potential.</p>
+        <p style={{ maxWidth: '800px', margin: 'auto', color: brandRed }}>Iwamizu Athletic Performance. Professional coaching driven by data, accountability, and the development of the athlete's total potential.</p>
       </section>
 
       {/* Journal */}
       <section id="journal" style={{ padding: '80px 20px' }}>
         <h2 style={{ textAlign: 'center', color: brandRed }}>Journal</h2>
-        <p style={{ textAlign: 'center' }}>Recent insights, training updates, and performance metrics.</p>
+        <p style={{ textAlign: 'center', color: brandRed }}>Recent insights, training updates, and performance metrics.</p>
       </section>
 
       {/* FAQ */}
       <section id="faq" style={{ padding: '80px 20px', background: '#111' }}>
         <h2 style={{ textAlign: 'center', color: brandRed }}>FAQ</h2>
-        <div style={{ maxWidth: '800px', margin: 'auto' }}>
+        <div style={{ maxWidth: '800px', margin: 'auto', color: brandRed }}>
           <p><strong>How do I start?</strong> Click the "Apply" link in the navigation bar to submit your application.</p>
           <p><strong>What is the focus?</strong> We utilize data-driven methods, including VBT (Velocity Based Training), to optimize your results.</p>
         </div>
@@ -66,10 +66,15 @@ export default function Home() {
       {/* Contact */}
       <section id="contact" style={{ padding: '50px 20px', textAlign: 'center', borderTop: `2px solid ${brandRed}` }}>
         <h2 style={{ color: brandRed }}>Contact</h2>
-        <p>Jo Iwamizu | <span style={{ color: brandRed, fontWeight: 'bold' }}>541-908-7016</span></p>
+        <p style={{ color: brandRed }}>
+          Jo Iwamizu | 
+          <a href="tel:5419087016" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none', marginLeft: '5px' }}>
+            541-908-7016
+          </a>
+        </p>
         <div style={{ marginTop: '10px' }}>
-          <a href="https://www.facebook.com/share/1SShnyHmTz/?mibextid=wwXIfr" style={{ color: '#fff', margin: '0 10px' }}>Facebook</a>
-          <a href="https://www.instagram.com/iwamizu_athletic_performance?igsh=dGl1ZTAxN25zcXBw&utm_source=qr" style={{ color: '#fff', margin: '0 10px' }}>Instagram</a>
+          <a href="https://www.facebook.com/share/1SShnyHmTz/?mibextid=wwXIfr" style={{ color: brandRed, margin: '0 10px' }}>Facebook</a>
+          <a href="https://www.instagram.com/iwamizu_athletic_performance?igsh=dGl1ZTAxN25zcXBw&utm_source=qr" style={{ color: brandRed, margin: '0 10px' }}>Instagram</a>
         </div>
       </section>
     </main>
