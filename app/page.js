@@ -15,7 +15,7 @@ export default function Home() {
           <a href="#about" style={{ color: brandRed, textDecoration: 'none' }}>About</a>
           <a href="#journal" style={{ color: brandRed, textDecoration: 'none' }}>Journal</a>
           <a href="#faq" style={{ color: brandRed, textDecoration: 'none' }}>FAQ</a>
-          <a href="#contact" style={{ color: brandRed, textDecoration: 'none' }}>Contact</a>
+          <a href="#connect" style={{ color: brandRed, textDecoration: 'none' }}>Connect</a>
           <a href={clientPortalUrl} style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>Client Portal</a>
           <a href={applicationUrl} style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>Apply</a>
         </nav>
@@ -63,9 +63,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Contact */}
-      <section id="contact" style={{ padding: '50px 20px', textAlign: 'center', borderTop: `2px solid ${brandRed}` }}>
-        <h2 style={{ color: brandRed }}>Contact</h2>
+      {/* Connect */}
+      <section id="connect" style={{ padding: '50px 20px', textAlign: 'center', borderTop: `2px solid ${brandRed}` }}>
+        <h2 style={{ color: brandRed }}>Connect</h2>
         <p style={{ color: brandRed }}>
           Jo Iwamizu | 
           <a href="tel:5419087016" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none', marginLeft: '5px' }}>
@@ -80,3 +80,4 @@ export default function Home() {
     </main>
   );
 }
+
