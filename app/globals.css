@@ -1,11 +1,23 @@
-/* Ensure the body is styled */
-body {
-  background-color: black !important;
-  color: white !important;
-  margin: 0;
-  padding: 0;
+/* app/globals.css */
+:root {
+  --primary-color: #ff0000; /* Update this to your brand red */
+  --bg-color: #000000;     /* Update this to your brand black */
+  --text-light: #ffffff;
 }
 
-h1 {
-  color: red !important;
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-light);
+}
+
+/* Style your buttons consistently */
+button {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 15px 40px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
 }
