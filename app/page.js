@@ -1,12 +1,13 @@
 export default function Home() {
   const applicationUrl = "https://drive.google.com/file/d/1u-OpRabHPBlcsHW5ZAXok61n6OfKfoMF/view?usp=sharing";
-  const clientPortalUrl = "#";
+  const clientPortalUrl = "#"; 
+  const brandRed = "#ff0000";
 
   return (
     <main style={{ fontFamily: 'sans-serif', lineHeight: '1.6', backgroundColor: '#000', color: '#fff' }}>
       
-      {/* Header with Logo placeholder */}
-      <header style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333' }}>
+      {/* Header */}
+      <header style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${brandRed}` }}>
         <img src="/logo.png" alt="Logo" style={{ height: '50px' }} />
         <nav style={{ display: 'flex', gap: '20px' }}>
           <a href="#philosophy" style={{ color: '#fff', textDecoration: 'none' }}>Philosophy</a>
@@ -15,20 +16,20 @@ export default function Home() {
           <a href="#journal" style={{ color: '#fff', textDecoration: 'none' }}>Journal</a>
           <a href="#faq" style={{ color: '#fff', textDecoration: 'none' }}>FAQ</a>
           <a href="#contact" style={{ color: '#fff', textDecoration: 'none' }}>Contact</a>
-          <a href={clientPortalUrl} style={{ color: '#ff0000', fontWeight: 'bold', textDecoration: 'none' }}>Client Portal</a>
-          <a href={applicationUrl} style={{ color: '#fff', fontWeight: 'bold', textDecoration: 'none' }}>Apply</a>
+          <a href={clientPortalUrl} style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>Client Portal</a>
+          <a href={applicationUrl} style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>Apply</a>
         </nav>
       </header>
 
       {/* Philosophy */}
       <section id="philosophy" style={{ padding: '80px 20px', textAlign: 'center', background: '#111' }}>
-        <h2>Philosophy</h2>
+        <h2 style={{ color: brandRed }}>Philosophy</h2>
         <p style={{ maxWidth: '800px', margin: 'auto' }}>We cultivate better people, not just better athletes. By focusing on conduct, intention, and high standards of accountability, we ensure excellence in every rep.</p>
       </section>
 
-      {/* Coaching & Principles */}
+      {/* Coaching */}
       <section id="coaching" style={{ padding: '80px 20px' }}>
-        <h2 style={{ textAlign: 'center' }}>Coaching</h2>
+        <h2 style={{ textAlign: 'center', color: brandRed }}>Coaching</h2>
         <div style={{ maxWidth: '800px', margin: 'auto' }}>
           <p>We provide structured, purposeful athletic programming based on these 5 Principles:</p>
           <ol>
@@ -43,19 +44,19 @@ export default function Home() {
 
       {/* About */}
       <section id="about" style={{ padding: '80px 20px', background: '#111' }}>
-        <h2 style={{ textAlign: 'center' }}>About</h2>
+        <h2 style={{ textAlign: 'center', color: brandRed }}>About</h2>
         <p style={{ maxWidth: '800px', margin: 'auto' }}>Iwamizu Athletic Performance. Professional coaching driven by data, accountability, and the development of the athlete's total potential.</p>
       </section>
 
       {/* Journal */}
       <section id="journal" style={{ padding: '80px 20px' }}>
-        <h2 style={{ textAlign: 'center' }}>Journal</h2>
+        <h2 style={{ textAlign: 'center', color: brandRed }}>Journal</h2>
         <p style={{ textAlign: 'center' }}>Recent insights, training updates, and performance metrics.</p>
       </section>
 
       {/* FAQ */}
       <section id="faq" style={{ padding: '80px 20px', background: '#111' }}>
-        <h2 style={{ textAlign: 'center' }}>FAQ</h2>
+        <h2 style={{ textAlign: 'center', color: brandRed }}>FAQ</h2>
         <div style={{ maxWidth: '800px', margin: 'auto' }}>
           <p><strong>How do I start?</strong> Click the "Apply" link in the navigation bar to submit your application.</p>
           <p><strong>What is the focus?</strong> We utilize data-driven methods, including VBT (Velocity Based Training), to optimize your results.</p>
@@ -63,9 +64,9 @@ export default function Home() {
       </section>
 
       {/* Contact */}
-      <section id="contact" style={{ padding: '50px 20px', textAlign: 'center', borderTop: '1px solid #333' }}>
-        <h2>Contact</h2>
-        <p>Jo Iwamizu | 541-908-7016</p>
+      <section id="contact" style={{ padding: '50px 20px', textAlign: 'center', borderTop: `2px solid ${brandRed}` }}>
+        <h2 style={{ color: brandRed }}>Contact</h2>
+        <p>Jo Iwamizu | <span style={{ color: brandRed, fontWeight: 'bold' }}>541-908-7016</span></p>
         <div style={{ marginTop: '10px' }}>
           <a href="https://www.facebook.com/share/1SShnyHmTz/?mibextid=wwXIfr" style={{ color: '#fff', margin: '0 10px' }}>Facebook</a>
           <a href="https://www.instagram.com/iwamizu_athletic_performance?igsh=dGl1ZTAxN25zcXBw&utm_source=qr" style={{ color: '#fff', margin: '0 10px' }}>Instagram</a>
