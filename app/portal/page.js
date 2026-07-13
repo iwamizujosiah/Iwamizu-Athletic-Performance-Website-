@@ -10,43 +10,53 @@ export default function Portal() {
         <h1 style={{ color: brandRed, margin: 0, fontSize: '1.5rem' }}>Athlete Dashboard</h1>
       </header>
 
-      {/* Stats Summary */}
-      <section style={{ padding: '20px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '10px' }}>
-          <p style={{ margin: 0, color: '#888' }}>Current Cycle</p>
-          <h2 style={{ margin: '5px 0 0 0' }}>Strength Peak</h2>
-        </div>
-        <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '10px' }}>
-          <p style={{ margin: 0, color: '#888' }}>Next Test Day</p>
-          <h2 style={{ margin: '5px 0 0 0' }}>July 18</h2>
+      {/* Pro-Tip for App usage */}
+      <div style={{ background: '#333', padding: '10px', borderRadius: '5px', marginTop: '20px', fontSize: '0.9rem' }}>
+        💡 <strong>Pro-Tip:</strong> Tap "Share" and "Add to Home Screen" to use this as an app.
+      </div>
+
+      {/* Primary Metrics (Gen Pop & All) */}
+      <section style={{ padding: '20px 0' }}>
+        <h2 style={{ color: brandRed }}>Progress Overview</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          {[
+            { label: 'Sessions Missed', value: '0' },
+            { label: 'Volume (Sets)', value: '12' },
+            { label: 'Volume (Reps)', value: '60' },
+            { label: 'Load PBs', value: '3' }
+          ].map(stat => (
+            <div style={{ background: '#1a1a1a', padding: '15px', borderRadius: '10px' }}>
+              <p style={{ margin: 0, color: '#888', fontSize: '0.8rem' }}>{stat.label}</p>
+              <h3 style={{ margin: '5px 0 0 0' }}>{stat.value}</h3>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Daily Session Card */}
+      {/* Advanced Performance Metrics */}
       <section style={{ padding: '20px 0' }}>
-        <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '10px', borderLeft: `5px solid ${brandRed}` }}>
-          <h2 style={{ marginTop: 0 }}>Today's Session</h2>
-          <p>Focus: Bar Velocity & Explosive Power</p>
-          <ul style={{ paddingLeft: '20px' }}>
-            <li>Squat: 3x3 @ 85% (Target: 0.5 m/s)</li>
-            <li>Clean Pulls: 4x2 @ 90%</li>
-          </ul>
-          <button style={{ background: brandRed, color: '#fff', border: 'none', padding: '10px 20px', cursor: 'pointer', fontWeight: 'bold' }}>Complete Session</button>
+        <h2 style={{ color: brandRed }}>Advanced Performance</h2>
+        <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '10px' }}>
+          {[
+            { label: '5-10-5 Time', val: '4.4s' },
+            { label: 'Vertical Jump', val: '32 in' },
+            { label: 'Flying 10', val: '1.05s' },
+            { label: 'Flying 20', val: '2.10s' },
+            { label: '40 Yard Dash', val: '4.6s' }
+          ].map(test => (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #333' }}>
+              <span>{test.label}</span>
+              <span style={{ fontWeight: 'bold', color: brandRed }}>{test.val}</span>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Progress Metric */}
+      {/* Manual Data Entry Placeholder */}
       <section style={{ padding: '20px 0' }}>
-        <h2 style={{ color: brandRed }}>Performance Metrics</h2>
-        <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '10px' }}>
-          <p>Bar Velocity Tracking (m/s)</p>
-          <div style={{ height: '100px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
-            {/* Visual placeholder for graph */}
-            {[0.4, 0.45, 0.42, 0.5].map(val => (
-              <div style={{ flex: 1, background: brandRed, height: `${val * 150}px` }}></div>
-            ))}
-          </div>
-        </div>
+        <button style={{ width: '100%', background: brandRed, color: '#fff', border: 'none', padding: '15px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>
+          Log Today's Data
+        </button>
       </section>
 
     </main>
