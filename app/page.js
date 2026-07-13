@@ -1,5 +1,6 @@
 export default function Home() {
   const applicationUrl = "https://drive.google.com/file/d/1u-OpRabHPBlcsHW5ZAXok61n6OfKfoMF/view?usp=sharing";
+  const clientPortalUrl = "/portal"; 
   const brandRed = "#ff0000";
 
   return (
@@ -12,7 +13,8 @@ export default function Home() {
           {['Home', 'Philosophy', 'Principles', 'Connect'].map(item => (
             <a href={`#${item.toLowerCase()}`} style={{ color: '#fff', textDecoration: 'none' }}>{item}</a>
           ))}
-          <a href={applicationUrl} style={{ background: '#333', padding: '5px 10px', textDecoration: 'none', color: '#fff', border: '1px solid #fff' }}>Apply</a>
+          <a href={clientPortalUrl} style={{ background: '#333', padding: '5px 10px', textDecoration: 'none', color: '#fff', border: '1px solid #fff' }}>Client Portal</a>
+          <a href={applicationUrl} style={{ background: brandRed, padding: '5px 10px', textDecoration: 'none', color: '#fff' }}>Apply</a>
         </nav>
       </header>
 
