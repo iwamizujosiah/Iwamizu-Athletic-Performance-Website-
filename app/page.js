@@ -7,12 +7,15 @@ export default function Home() {
     <main style={{ fontFamily: 'sans-serif', backgroundColor: '#000', color: '#fff', padding: '0 20px' }}>
       
       {/* Navbar */}
-      <header style={{ padding: '20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{ padding: '20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
         <img src="/logo.png" alt="Logo" style={{ height: '40px' }} />
-        <nav style={{ display: 'flex', gap: '10px' }}>
-          {['Home', 'Philosophy', 'Principles', 'Apply', 'Connect'].map(item => (
-            <a href={`#${item.toLowerCase()}`} key={item} style={{ color: '#fff', textDecoration: 'none' }}>{item}</a>
-          ))}
+        <nav style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <a href="#home" style={{ color: '#fff', textDecoration: 'none' }}>Home</a>
+          <a href="#philosophy" style={{ color: '#fff', textDecoration: 'none' }}>Philosophy</a>
+          <a href="#principles" style={{ color: '#fff', textDecoration: 'none' }}>Principles</a>
+          <a href="/practice" style={{ color: brandRed, textDecoration: 'none', fontWeight: 'bold' }}>The Practice</a>
+          <a href="#apply" style={{ color: '#fff', textDecoration: 'none' }}>Apply</a>
+          <a href="#connect" style={{ color: '#fff', textDecoration: 'none' }}>Connect</a>
           <a href={clientPortalUrl} style={{ background: '#333', padding: '5px 10px', textDecoration: 'none', color: '#fff', border: '1px solid #fff' }}>Client Portal</a>
         </nav>
       </header>
