@@ -46,7 +46,7 @@ export default function Practice() {
   ];
 
   return (
-    <main style={{ fontFamily: 'sans-serif', backgroundColor: '#000', color: '#fff', padding: '0 20px', minHeight: '100vh', pb: '80px' }}>
+    <main style={{ fontFamily: 'sans-serif', backgroundColor: '#000', color: '#fff', padding: '0 20px', minHeight: '100vh' }}>
       
       {/* Simple Navbar */}
       <header style={{ padding: '20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1a1a1a' }}>
@@ -138,22 +138,21 @@ export default function Practice() {
                     ✕ {tier.footerNote}
                   </p>
                 )}
+                
+                {/* Solved Button: Clean solid border, zero error-causing JS */}
                 <a 
                   href="/#apply" 
                   style={{ 
                     display: 'block', 
                     textAlign: 'center', 
-                    background: 'transparent', 
+                    background: '#2a2a2a', 
                     color: '#fff', 
-                    border: '1px solid #fff', 
+                    border: '1px solid #444', 
                     padding: '12px 0', 
                     textDecoration: 'none', 
                     fontWeight: 'bold',
-                    borderRadius: '5px',
-                    transition: '0.2s'
+                    borderRadius: '5px'
                   }}
-                  onMouseEnter={(e) => { e.target.style.background = '#fff'; e.target.style.color = '#000'; }}
-                  onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#fff'; }}
                 >
                   Select {tier.title}
                 </a>
@@ -165,7 +164,7 @@ export default function Practice() {
       </section>
 
       {/* Footer Banner */}
-      <section style={{ textAlign: 'center', padding: '40px 20px', maxWidth: '600px', margin: '0 auto', borderTop: '1px solid #1a1a1a' }}>
+      <section style={{ textAlign: 'center', padding: '60px 20px', maxWidth: '600px', margin: '0 auto', borderTop: '1px solid #1a1a1a' }}>
         <h2 style={{ color: brandRed, fontSize: '1.8rem' }}>Ready to Begin?</h2>
         <p style={{ color: '#ccc', lineHeight: '1.6', margin: '10px 0 25px 0' }}>
           Spaces are limited to ensure elite level oversight and personalized adjustments.
