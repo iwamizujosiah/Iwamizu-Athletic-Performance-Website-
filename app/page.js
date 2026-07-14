@@ -1,5 +1,5 @@
 export default function Home() {
-  const googleFormUrl = "https://docs.google.com/forms/d/e/1OmVO4UnaaPc1VJblaiJVLx2I2XV6F64EWzNthQgilno/viewform?embedded=true";
+  const googleFormUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfIeWDyCtHH8teR4vRPkNWzBdn0_0o6IYzOBC4CdTsaVi1h_w/viewform?embedded=true";
   const clientPortalUrl = "/portal"; 
   const brandRed = "#ff0000";
 
@@ -11,7 +11,7 @@ export default function Home() {
         <img src="/logo.png" alt="Logo" style={{ height: '40px' }} />
         <nav style={{ display: 'flex', gap: '10px' }}>
           {['Home', 'Philosophy', 'Principles', 'Apply', 'Connect'].map(item => (
-            <a href={`#${item.toLowerCase()}`} style={{ color: '#fff', textDecoration: 'none' }}>{item}</a>
+            <a href={`#${item.toLowerCase()}`} key={item} style={{ color: '#fff', textDecoration: 'none' }}>{item}</a>
           ))}
           <a href={clientPortalUrl} style={{ background: '#333', padding: '5px 10px', textDecoration: 'none', color: '#fff', border: '1px solid #fff' }}>Client Portal</a>
         </nav>
