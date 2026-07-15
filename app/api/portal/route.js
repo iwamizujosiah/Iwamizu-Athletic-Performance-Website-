@@ -1,154 +1,95 @@
-"use client";
-import { useState } from 'react';
+import { NextResponse } from 'next/server';
 
-export default function AthletePortal() {
-  const brandRed = "#ff0000";
-  const [accessCode, setAccessCode] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [athleteData, setAthleteData] = useState(null);
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get('code');
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!accessCode) return;
-    
-    setLoading(true);
-    setError("");
-
-    try {
-      // Securely fetch data through your API route
-      const res = await fetch(`/api/portal?code=${accessCode.trim().toUpperCase()}`);
-      const data = await res.json();
-
-      if (res.ok) {
-        setAthleteData(data);
-        setIsAuthenticated(true);
-      } else {
-        setError(data.error || "Access code not recognized.");
-      }
-    } catch (err) {
-      setError("Unable to connect to your portal. Check your connection.");
-    } finally {
-      setLoading(false);
+    if (!code) {
+      return NextResponse.json({ error: "Access code is required." }, { status: 400 });
     }
-  };
 
-  // 1. GATEKEEPER SCREEN (Only unlocks with code)
-  if (!isAuthenticated) {
-    return (
-      <main style={{ fontFamily: 'sans-serif', backgroundColor: '#000', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-        <div style={{ width: '100%', maxWidth: '400px', background: '#111', padding: '40px 30px', borderRadius: '12px', border: '1px solid #222', textAlign: 'center' }}>
-          <img src="/logo.png" alt="Logo" style={{ height: '50px', marginBottom: '20px' }} />
-          <h1 style={{ fontSize: '1.8rem', marginBottom: '10px', color: '#fff' }}>Athlete Portal</h1>
-          <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '30px' }}>Enter your exclusive access code to unlock your training dashboard.</p>
-          
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <input 
-              type="text" 
-              placeholder="IW-XXXX-XXXX" 
-              value={accessCode}
-              onChange={(e) => setAccessCode(e.target.value)}
-              disabled={loading}
-              style={{ padding: '15px', borderRadius: '6px', border: '1px solid #333', backgroundColor: '#000', color: '#fff', fontSize: '1.2rem', textAlign: 'center', letterSpacing: '2px', fontWeight: 'bold' }}
-            />
-            {error && <p style={{ color: brandRed, margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>{error}</p>}
-            <button type="submit" disabled={loading} style={{ background: brandRed, color: '#fff', border: 'none', padding: '15px', borderRadius: '6px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-              {loading ? "Unlocking..." : "Unlock Dashboard"}
-            </button>
-          </form>
-          <a href="/" style={{ display: 'inline-block', marginTop: '25px', color: '#555', textDecoration: 'none', fontSize: '0.85rem' }}>Back to Home</a>
-        </div>
-      </main>
-    );
+    const spreadsheetId = process.env.SPREADSHEET_ID;
+    if (!spreadsheetId) {
+      console.error("Missing SPREADSHEET_ID environment variable.");
+      return NextResponse.json({ error: "Server misconfiguration. Missing sheet ID." }, { status: 500 });
+    }
+
+    // 1. Fetch public Google Sheet data cleanly as a JSON stream using Google's visualization query endpoint
+    const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json`;
+    const res = await fetch(url, { next: { revalidate: 0 } }); // Force no-cache
+
+    if (!res.ok) {
+      throw new Error(`Google Sheets responded with status: ${res.status}`);
+    }
+
+    const text = await res.text();
+    
+    // 2. Parse Google's JSONP wrapper format safely
+    const startIdx = text.indexOf('{');
+    const endIdx = text.lastIndexOf('}') + 1;
+    if (startIdx === -1 || endIdx === -1) {
+      throw new Error("Invalid response format from Google Sheets.");
+    }
+    
+    const jsonString = text.slice(startIdx, endIdx);
+    const rawData = JSON.parse(jsonString);
+
+    // Extract columns and rows
+    const columns = rawData.table.cols.map(col => col.label ? col.label.trim() : "");
+    const rows = rawData.table.rows;
+
+    // Helper to safely extract string value from Google Sheet cell object
+    const getVal = (rowObj, colIndex) => {
+      if (!rowObj || !rowObj.c || !rowObj.c[colIndex]) return "";
+      const cell = rowObj.c[colIndex];
+      return cell.f !== undefined ? cell.f : (cell.v !== undefined ? String(cell.v) : "");
+    };
+
+    // Find indices based on expected column headers
+    const codeColIndex = columns.findIndex(col => col.toLowerCase() === "access code");
+    const nameColIndex = columns.findIndex(col => col.toLowerCase() === "name");
+    const missedColIndex = columns.findIndex(col => col.toLowerCase() === "sessions missed");
+    const volSetsColIndex = columns.findIndex(col => col.toLowerCase() === "volume (sets)");
+    const volRepsColIndex = columns.findIndex(col => col.toLowerCase() === "volume (reps)");
+    const loadPBsColIndex = columns.findIndex(col => col.toLowerCase() === "load pbs");
+    const fiveTenFiveColIndex = columns.findIndex(col => col.toLowerCase() === "5-10-5 time");
+    const verticalColIndex = columns.findIndex(col => col.toLowerCase() === "vertical jump");
+    const flyingTenColIndex = columns.findIndex(col => col.toLowerCase() === "flying 10");
+    const flyingTwentyColIndex = columns.findIndex(col => col.toLowerCase() === "flying 20");
+    const workoutUrlColIndex = columns.findIndex(col => col.toLowerCase() === "today's assigned workout");
+
+    if (codeColIndex === -1) {
+      return NextResponse.json({ error: "Spreadsheet structure invalid: 'Access Code' column missing." }, { status: 500 });
+    }
+
+    // 3. Look up the row matching the typed code (case-insensitive)
+    const matchingRow = rows.find(row => {
+      const rowCode = getVal(row, codeColIndex);
+      return rowCode.trim().toUpperCase() === code.trim().toUpperCase();
+    });
+
+    if (!matchingRow) {
+      return NextResponse.json({ error: "Access code not recognized." }, { status: 404 });
+    }
+
+    // 4. Build and return the clean athlete object
+    const athleteData = {
+      name: nameColIndex !== -1 ? getVal(matchingRow, nameColIndex) : "Athlete",
+      sessionsMissed: missedColIndex !== -1 ? getVal(matchingRow, missedColIndex) : "0",
+      volumeSets: volSetsColIndex !== -1 ? getVal(matchingRow, volSetsColIndex) : "0",
+      volumeReps: volRepsColIndex !== -1 ? getVal(matchingRow, volRepsColIndex) : "0",
+      loadPBs: loadPBsColIndex !== -1 ? getVal(matchingRow, loadPBsColIndex) : "0",
+      fiveTenFive: fiveTenFiveColIndex !== -1 ? getVal(matchingRow, fiveTenFiveColIndex) : "-",
+      verticalJump: verticalColIndex !== -1 ? getVal(matchingRow, verticalColIndex) : "-",
+      flyingTen: flyingTenColIndex !== -1 ? getVal(matchingRow, flyingTenColIndex) : "-",
+      flyingTwenty: flyingTwentyColIndex !== -1 ? getVal(matchingRow, flyingTwentyColIndex) : "-",
+      workoutUrl: workoutUrlColIndex !== -1 ? getVal(matchingRow, workoutUrlColIndex) : "#"
+    };
+
+    return NextResponse.json(athleteData);
+  } catch (error) {
+    console.error("Backend API Error:", error);
+    return NextResponse.json({ error: "Internal server error connecting to Google Sheets." }, { status: 500 });
   }
-
-  // 2. LIVE ATHLETE HOME SCREEN (Your custom metric layout)
-  return (
-    <main style={{ fontFamily: 'sans-serif', backgroundColor: '#000', color: '#fff', minHeight: '100vh', paddingBottom: '60px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: `2px solid ${brandRed}`, backgroundColor: '#000' }}>
-        <a href="/">
-          <img src="/logo.png" alt="Logo" style={{ height: '40px' }} />
-        </a>
-        <h1 style={{ color: brandRed, fontSize: '1.2rem', fontWeight: 'bold', margin: 0 }}>{athleteData.name}</h1>
-      </header>
-
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-        
-        <div style={{ background: '#1a1a1a', padding: '15px 20px', borderRadius: '8px', border: '1px solid #222', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '1.2rem' }}>💡</span>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: '#ccc' }}>
-            <strong>Pro-Tip:</strong> Tap "Share" and "Add to Home Screen" to use this as an app.
-          </p>
-        </div>
-
-        {/* Overview Cards */}
-        <section style={{ marginBottom: '40px' }}>
-          <h2 style={{ color: brandRed, fontSize: '1.8rem', marginBottom: '20px' }}>Progress Overview</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-            
-            <div style={{ background: '#111', border: '1px solid #222', padding: '20px', borderRadius: '10px' }}>
-              <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '5px' }}>Sessions Missed</span>
-              <strong style={{ fontSize: '1.8rem' }}>{athleteData.sessionsMissed}</strong>
-            </div>
-
-            <div style={{ background: '#111', border: '1px solid #222', padding: '20px', borderRadius: '10px' }}>
-              <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '5px' }}>Volume (Sets)</span>
-              <strong style={{ fontSize: '1.8rem' }}>{athleteData.volumeSets}</strong>
-            </div>
-
-            <div style={{ background: '#111', border: '1px solid #222', padding: '20px', borderRadius: '10px' }}>
-              <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '5px' }}>Volume (Reps)</span>
-              <strong style={{ fontSize: '1.8rem' }}>{athleteData.volumeReps}</strong>
-            </div>
-
-            <div style={{ background: '#111', border: '1px solid #222', padding: '20px', borderRadius: '10px' }}>
-              <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '5px' }}>Load PBs</span>
-              <strong style={{ fontSize: '1.8rem' }}>{athleteData.loadPBs}</strong>
-            </div>
-
-          </div>
-        </section>
-
-        {/* Track Performance Records */}
-        <section style={{ marginBottom: '40px' }}>
-          <h2 style={{ color: brandRed, fontSize: '1.8rem', marginBottom: '25px' }}>Advanced Performance</h2>
-          <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '10px 20px' }}>
-            
-            {[
-              { label: "5-10-5 Time", value: athleteData.fiveTenFive },
-              { label: "Vertical Jump", value: athleteData.verticalJump },
-              { label: "Flying 10", value: athleteData.flyingTen },
-              { label: "Flying 20", value: athleteData.flyingTwenty }
-            ].map((metric, index, arr) => (
-              <div key={metric.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '20px 0', borderBottom: index === arr.length - 1 ? 'none' : '1px solid #222' }}>
-                <span style={{ fontSize: '1.05rem', color: '#fff', fontWeight: 'bold' }}>{metric.label}</span>
-                <span style={{ fontSize: '1.05rem', color: brandRed, fontWeight: 'bold' }}>{metric.value}</span>
-              </div>
-            ))}
-
-          </div>
-        </section>
-
-        {/* Dynamic Assigned Workout Button */}
-        <section style={{ marginTop: '50px', textAlign: 'center' }}>
-          <a 
-            href={athleteData.workoutUrl} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            style={{ display: 'block', background: brandRed, color: '#fff', textAlign: 'center', padding: '20px', borderRadius: '8px', fontSize: '1.2rem', fontWeight: 'bold', textDecoration: 'none', boxShadow: '0 4px 15px rgba(255, 0, 0, 0.3)' }}
-          >
-            🔥 Today's Assigned Workout
-          </a>
-          <button 
-            onClick={() => { setIsAuthenticated(false); setAccessCode(""); }} 
-            style={{ background: 'transparent', border: 'none', color: '#555', marginTop: '20px', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            Lock Dashboard
-          </button>
-        </section>
-
-      </div>
-    </main>
-  );
 }
