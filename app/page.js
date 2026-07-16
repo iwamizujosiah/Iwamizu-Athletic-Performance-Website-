@@ -93,10 +93,13 @@ export default function Home() {
       {/* Connect */}
       <section id="connect" style={{ padding: '50px 20px', textAlign: 'center', borderTop: `2px solid ${brandRed}` }}>
         <h2 style={{ color: brandRed }}>Connect</h2>
-        <p style={{ color: brandRed }}>
-          Jo Iwamizu | 
-          <a href="tel:5419087016" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none', marginLeft: '5px' }}>
+        <p style={{ color: brandRed, lineHeight: '1.6' }}>
+          Jo Iwamizu <br />
+          <a href="tel:5419087016" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>
             541-908-7016
+          </a> <br />
+          <a href="mailto:coaching@iwamizuathleticperformance.com" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>
+            coaching@iwamizuathleticperformance.com
           </a>
         </p>
         <div style={{ marginTop: '10px' }}>
