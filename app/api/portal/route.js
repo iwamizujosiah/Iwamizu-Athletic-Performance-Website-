@@ -9,11 +9,8 @@ export async function GET(request) {
       return NextResponse.json({ error: "Access code is required." }, { status: 400 });
     }
 
-    const spreadsheetId = process.env.SPREADSHEET_ID;
-    if (!spreadsheetId) {
-      console.error("Missing SPREADSHEET_ID environment variable.");
-      return NextResponse.json({ error: "Server misconfiguration. Missing sheet ID." }, { status: 500 });
-    }
+    // Hardcoded to your new business Google Sheet ID to bypass Vercel environment variable glitches
+    const spreadsheetId = "1UBb3gdPOzrl0XHSU9DMJ_n3iVtzrShER";
 
     // 1. Fetch public Google Sheet data cleanly as a JSON stream using Google's visualization query endpoint
     const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json`;
