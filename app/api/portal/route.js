@@ -9,7 +9,7 @@ export async function GET(request) {
       return NextResponse.json({ error: "Access code is required." }, { status: 400 });
     }
 
-    // Hardcoded to your new business Google Sheet ID to bypass Vercel environment variable glitches
+    // Hardcoded to your new business Google Sheet ID
     const spreadsheetId = "1UBb3gdPOzrl0XHSU9DMJ_n3iVtzrShER";
 
     // 1. Fetch public Google Sheet data cleanly as a JSON stream using Google's visualization query endpoint
@@ -43,21 +43,38 @@ export async function GET(request) {
       return cell.f !== undefined ? cell.f : (cell.v !== undefined ? String(cell.v) : "");
     };
 
-    // Find indices based on expected column headers
-    const codeColIndex = columns.findIndex(col => col.toLowerCase() === "access code");
+    // Find indices based on your exact spreadsheet headers
+    const codeColIndex = columns.findIndex(col => {
+      const c = col.toLowerCase();
+      return c === "code" || c === "access code";
+    });
+    
     const nameColIndex = columns.findIndex(col => col.toLowerCase() === "name");
     const missedColIndex = columns.findIndex(col => col.toLowerCase() === "sessions missed");
     const volSetsColIndex = columns.findIndex(col => col.toLowerCase() === "volume (sets)");
     const volRepsColIndex = columns.findIndex(col => col.toLowerCase() === "volume (reps)");
     const loadPBsColIndex = columns.findIndex(col => col.toLowerCase() === "load pbs");
-    const fiveTenFiveColIndex = columns.findIndex(col => col.toLowerCase() === "5-10-5 time");
-    const verticalColIndex = columns.findIndex(col => col.toLowerCase() === "vertical jump");
+    
+    const fiveTenFiveColIndex = columns.findIndex(col => {
+      const c = col.toLowerCase();
+      return c === "5-10-5" || c === "5-10-5 time";
+    });
+    
+    const verticalColIndex = columns.findIndex(col => {
+      const c = col.toLowerCase();
+      return c === "vertical" || c === "vertical jump";
+    });
+    
     const flyingTenColIndex = columns.findIndex(col => col.toLowerCase() === "flying 10");
     const flyingTwentyColIndex = columns.findIndex(col => col.toLowerCase() === "flying 20");
-    const workoutUrlColIndex = columns.findIndex(col => col.toLowerCase() === "today's assigned workout");
+    
+    const workoutUrlColIndex = columns.findIndex(col => {
+      const c = col.toLowerCase();
+      return c === "workout url" || c === "today's assigned workout";
+    });
 
     if (codeColIndex === -1) {
-      return NextResponse.json({ error: "Spreadsheet structure invalid: 'Access Code' column missing." }, { status: 500 });
+      return NextResponse.json({ error: "Spreadsheet structure invalid: 'Code' column missing." }, { status: 500 });
     }
 
     // 3. Look up the row matching the typed code (case-insensitive)
