@@ -9,8 +9,8 @@ export async function GET(request) {
       return NextResponse.json({ error: "Access code is required." }, { status: 400 });
     }
 
-    // Hardcoded to your new business Google Sheet ID
-    const spreadsheetId = "1UBb3gdPOzrl0XHSU9DMJ_n3iVtzrShER";
+    // Hardcoded to your active business Google Sheet ID
+    const spreadsheetId = "1Vyb7Gyt4ftWRPSUxhYxZfBuVS04fQQILay7fL3V75eI";
 
     // 1. Fetch public Google Sheet data cleanly as a JSON stream using Google's visualization query endpoint
     const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json`;
