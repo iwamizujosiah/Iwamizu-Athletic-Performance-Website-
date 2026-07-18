@@ -1,21 +1,34 @@
--- 1. -- 1. Create the exercises table if it doesn't exist yet
-CREATE TABLE IF NOT EXISTS exercises (
+-- INSTRUCTIONS:
+-- 1. Copy everything below this line.
+-- 2. Go to your Supabase Dashboard -> SQL Editor.
+-- 3. Paste this in and click "Run" to update the live system.
+------------------------------------------------------------------
+
+-- 1. Drop the old table to replace it with the correct structure
+DROP TABLE IF EXISTS exercises CASCADE;
+
+-- 2. Create the exercises table with the exact columns your page expects
+CREATE TABLE exercises (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
-    category TEXT NOT NULL CHECK (category IN ('Activation', 'Movement', 'Strength'))
+    block_type TEXT NOT NULL CHECK (block_type IN ('Activation', 'Movement', 'Strength')),
+    modality TEXT DEFAULT 'Bodyweight',
+    tracking_unit TEXT DEFAULT 'reps'
 );
 
--- 2. Clear out any old data to prevent duplicates
-TRUNCATE TABLE exercises;
+-- 3. Insert matching data with correct block_types, tracking units, and modalities
+INSERT INTO exercises (name, block_type, modality, tracking_unit) VALUES
+-- Activation
+('World Greatest Stretch', 'Activation', 'Mobility', 'reps'),
+('90/90 Hip Flow', 'Activation', 'Mobility', 'reps'),
+('Band Pull-Aparts', 'Activation', 'Bands', 'reps'),
 
--- 3. Insert the curriculum data into your database
-INSERT INTO exercises (name, category) VALUES
-('World Greatest Stretch', 'Activation'),
-('90/90 Hip Flow', 'Activation'),
-('Band Pull-Aparts', 'Activation'),
-('A-Skips', 'Movement'),
-('Lateral Bounds', 'Movement'),
-('Medicine Ball Slams', 'Movement'),
-('Barbell Back Squat', 'Strength'),
-('Dumbbell Bench Press', 'Strength'),
-('Romanian Deadlift', 'Strength');
+-- Movement
+('A-Skips', 'Movement', 'Speed', 'distance'),
+('Lateral Bounds', 'Movement', 'Plyo', 'reps'),
+('Medicine Ball Slams', 'Movement', 'Power', 'reps'),
+
+-- Strength
+('Barbell Back Squat', 'Strength', 'Barbell', 'lbs'),
+('Dumbbell Bench Press', 'Strength', 'Dumbbell', 'lbs'),
+('Romanian Deadlift', 'Strength', 'Barbell', 'lbs');
