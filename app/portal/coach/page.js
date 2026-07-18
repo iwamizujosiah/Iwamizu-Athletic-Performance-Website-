@@ -162,7 +162,7 @@ export default function CoachingDashboard() {
       modality: exercise.modality || 'Bodyweight',
       tracking_unit: targetUnit,
       sets: 3,
-      rest_timer: '60s', // Default rest period setup
+      rest_timer: '60s', 
       reps: targetUnit === 'reps' ? 10 : '',
       load_value: targetUnit === 'lbs' ? 135 : '',
       seconds_value: targetUnit === 'seconds' ? 30 : '',
@@ -183,7 +183,7 @@ export default function CoachingDashboard() {
     setCurrentPrescription(currentPrescription.filter(item => item.uniqueId !== uniqueId));
   };
 
-  // Commit Workout Prescription to Database
+  // Commit Workout Prescription Live to Supabase Tables
   const handleSaveWorkout = async () => {
     if (!targetAthleteId || currentPrescription.length === 0) {
       setSaveStatus('⚠️ Please select an athlete and add exercises.');
@@ -191,15 +191,51 @@ export default function CoachingDashboard() {
     }
 
     try {
-      setSaveStatus('Publishing routines...');
+      setSaveStatus('Publishing routines to cloud database...');
       
-      setTimeout(() => {
-        setSaveStatus('✅ Workout successfully pushed to Athlete Portal!');
-        setCurrentPrescription([]);
-      }, 1200);
+      // Step 1: Insert the primary Workout header block
+      const { data: workoutData, error: workoutErr } = await supabase
+        .from('workouts')
+        .insert([{
+          athlete_id: targetAthleteId,
+          title: workoutName
+        }])
+        .select()
+        .single();
 
+      if (workoutErr) throw workoutErr;
+
+      const newWorkoutId = workoutData.id;
+
+      // Step 2: Format individual prescription line cards to map structural rows cleanly
+      const itemsToInsert = currentPrescription.map((item, idx) => ({
+        workout_id: newWorkoutId,
+        exercise_name: item.name,
+        block_type: item.block_type,
+        modality: item.modality,
+        tracking_unit: item.tracking_unit,
+        sets: parseInt(item.sets) || 3,
+        reps: item.reps ? String(item.reps) : null,
+        load_value: item.load_value ? String(item.load_value) : null,
+        seconds_value: item.seconds_value ? String(item.seconds_value) : null,
+        distance_value: item.distance_value ? String(item.distance_value) : null,
+        rest_timer: item.rest_timer || '60s',
+        order_index: idx
+      }));
+
+      // Step 3: Bulk insert child rows down to workout_items relational link
+      const { error: itemsErr } = await supabase
+        .from('workout_items')
+        .insert(itemsToInsert);
+
+      if (itemsErr) throw itemsErr;
+
+      setSaveStatus('✅ Workout successfully pushed to Athlete Portal!');
+      setCurrentPrescription([]); // Clear canvas workspace deck on success
+      
     } catch (err) {
-      setSaveStatus('Error saving program.');
+      console.error("Database connection failure:", err.message);
+      setSaveStatus(`❌ Error saving program: ${err.message}`);
     }
   };
 
