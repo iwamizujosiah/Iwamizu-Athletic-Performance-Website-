@@ -2,9 +2,6 @@
 
 export const dynamic = "force-dynamic";
 
-// Force the global Tailwind styles to load directly into this deep route
-import "../../globals.css";
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase.js';
 import { 
@@ -54,7 +51,7 @@ export default function CoachingDashboard() {
     }
   }, []);
 
-  // Load Everything From Supabase Database (which communicates with your spreadsheet)
+  // Load Everything From Supabase Database
   useEffect(() => {
     if (!isAuthorized) return;
 
@@ -132,32 +129,83 @@ export default function CoachingDashboard() {
   // Gated Registration UI Screen
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen bg-[#0d0f12] flex items-center justify-center text-white font-sans p-6">
-        <div className="w-full max-w-md bg-[#12161a] border border-[#1f262e] rounded-2xl p-8 shadow-2xl text-center">
-          <div className="w-16 h-16 bg-red-600/10 border border-red-500/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Lock className="text-red-500" size={28} />
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: '#0d0f12',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'sans-serif',
+        color: '#ffffff',
+        padding: '24px'
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '400px',
+          backgroundColor: '#12161a',
+          border: '1px solid #1f262e',
+          borderRadius: '16px',
+          padding: '32px',
+          textAlign: 'center',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            backgroundColor: 'rgba(220, 38, 38, 0.1)',
+            border: '1px solid rgba(220, 38, 38, 0.3)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px auto'
+          }}>
+            <Lock size={28} style={{ color: '#dc2626' }} />
           </div>
-          <h1 className="text-2xl font-black tracking-wider text-white">IWAMIZU ATHLETIC PORTAL</h1>
-          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Coach Registration Lock</p>
+          <h1 style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '0.05em', margin: '0' }}>IWAMIZU ATHLETIC PORTAL</h1>
+          <p style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' }}>Coach Registration Lock</p>
           
-          <form onSubmit={handleVerifyKey} className="mt-8 space-y-4 text-left">
-            <div>
-              <label className="text-xs font-black uppercase text-gray-400 block mb-2 tracking-wide">Enter Coach Master Registration Key</label>
-              <div className="relative">
-                <KeyRound className="absolute left-3 top-3 text-gray-500" size={18} />
+          <form onSubmit={handleVerifyKey} style={{ marginTop: '32px', textAlign: 'left' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '900', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>Enter Coach Master Registration Key</label>
+              <div style={{ position: 'relative' }}>
+                <KeyRound size={18} style={{ position: 'absolute', left: '12px', top: '14px', color: '#6b7280' }} />
                 <input 
                   type="password" 
                   placeholder="••••••••••••" 
                   value={accessKey}
                   onChange={(e) => setAccessKey(e.target.value)}
-                  className="w-full bg-[#1c232b] border border-[#1f262e] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:border-red-500 text-white tracking-widest"
+                  style={{
+                    width: '100%',
+                    backgroundColor: '#1c232b',
+                    border: '1px solid #1f262e',
+                    borderRadius: '12px',
+                    padding: '12px 16px 12px 44px',
+                    fontSize: '14px',
+                    color: '#ffffff',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    letterSpacing: '0.15em'
+                  }}
                 />
               </div>
             </div>
 
-            {authError && <p className="text-xs text-red-500 font-semibold text-center mt-2">{authError}</p>}
+            {authError && <p style={{ fontSize: '12px', color: '#ef4444', fontWeight: '600', textAlign: 'center', margin: '8px 0' }}>{authError}</p>}
 
-            <button type="submit" className="w-full bg-red-600 hover:bg-red-700 transition font-bold py-3 rounded-xl text-sm shadow-lg shadow-red-600/20 mt-4">
+            <button type="submit" style={{
+              width: '100%',
+              backgroundColor: '#dc2626',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 'bold',
+              padding: '14px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              marginTop: '16px',
+              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)'
+            }}>
               Authorize Device & Login
             </button>
           </form>
@@ -168,186 +216,108 @@ export default function CoachingDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0d0f12] flex items-center justify-center text-white">
-        <div className="text-center space-y-2">
-          <Activity className="animate-spin text-red-600 mx-auto" size={40} />
-          <p className="text-sm font-bold uppercase tracking-widest text-gray-400">Syncing Spreadsheet Data Vault...</p>
+      <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontFamily: 'sans-serif' }}>
+        <div style={{ textAlign: 'center' }}>
+          <Activity className="animate-spin" size={40} style={{ color: '#dc2626', margin: '0 auto 8px auto' }} />
+          <p style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af' }}>Syncing Spreadsheet Data Vault...</p>
         </div>
       </div>
     );
   }
 
+  // Core Render Dashboard Layout
   return (
-    <div className="flex min-h-screen bg-[#0d0f12] text-white font-sans">
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d0f12', color: '#ffffff', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
       
       {/* SIDEBAR NAVIGATION */}
-      <aside className="w-64 bg-[#12161a] border-r border-[#1f262e] flex flex-col justify-between p-6 shrink-0">
-        <div>
-          <div className="mb-10">
-            <h1 className="text-xl font-black tracking-wider text-red-600">IWAMIZU</h1>
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Athletic Performance</p>
-            <div className="mt-4 bg-[#1c232b] px-3 py-2 rounded border border-[#2b3541]">
-              <p className="text-xs text-gray-400 uppercase font-bold">Portal Layer Active</p>
-            </div>
+      <aside style={{ width: '256px', backgroundColor: '#12161a', borderRight: '1px solid #1f262e', display: 'flex', flexDirection: 'col', justifyContent: 'space-between', padding: '24px', flexShrink: 0, boxSizing: 'border-box' }}>
+        <div style={{ width: '100%' }}>
+          <div style={{ marginBottom: '40px' }}>
+            <h1 style={{ fontSize: '20px', fontWeight: '900', letterSpacing: '0.05em', color: '#dc2626', margin: '0' }}>IWAMIZU</h1>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af', margin: '0' }}>Athletic Performance</p>
           </div>
 
-          <nav className="space-y-2">
-            <button onClick={() => setActiveTab('athletes')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition ${activeTab === 'athletes' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-400 hover:bg-[#1c232b] hover:text-white'}`}>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button onClick={() => setActiveTab('athletes')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'athletes' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
               <Users size={18} /> Athletes
             </button>
-            <button onClick={() => setActiveTab('workouts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition ${activeTab === 'workouts' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-400 hover:bg-[#1c232b] hover:text-white'}`}>
+            <button onClick={() => setActiveTab('workouts')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'workouts' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
               <Dumbbell size={18} /> Workouts
             </button>
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold text-gray-400 hover:bg-[#1c232b] transition"><Calendar size={18} /> Calendar</button>
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold text-gray-400 hover:bg-[#1c232b] transition"><MessageSquare size={18} /> Messages</button>
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold text-gray-400 hover:bg-[#1c232b] transition"><Settings size={18} /> System Settings</button>
           </nav>
-        </div>
-
-        <div className="flex items-center gap-3 pt-4 border-t border-[#1f262e]">
-          <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center font-bold text-white border border-red-500 shadow-md">JI</div>
-          <div>
-            <h4 className="text-sm font-bold">Josiah Iwamizu</h4>
-            <p className="text-xs text-gray-400">Head Coach</p>
-          </div>
         </div>
       </aside>
 
-      {/* DASHBOARD CORE METRICS DISPLAY */}
-      <main className="flex-1 p-8 overflow-y-auto max-w-[1400px]">
-        <div className="mb-8">
-          <h2 className="text-2xl font-black">Good afternoon, Coach.</h2>
-          <p className="text-sm text-gray-400">Spreadsheet Stream: <span className="text-green-400 font-semibold">Online Live</span></p>
+      {/* DASHBOARD INNER CONTENT */}
+      <main style={{ flex: 1, padding: '32px', overflowY: 'auto', boxSizing: 'border-box' }}>
+        <div style={{ marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: '900', margin: '0' }}>Good afternoon, Coach.</h2>
+          <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0 0' }}>Spreadsheet Stream: <span style={{ color: '#4ade80', fontWeight: '600' }}>Online Live</span></p>
         </div>
 
-        {/* METRIC BLOCKS */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-          <div className="bg-[#12161a] border border-[#1f262e] p-5 rounded-xl flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Team Discipline</p>
-              <h3 className="text-3xl font-black mt-1 text-green-400">{stats.attendance}</h3>
-            </div>
-            <Activity className="text-green-400 opacity-80" size={28} />
+        {/* METRIC ROW BANNER */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+          <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: '0' }}>Team Discipline</p>
+            <h3 style={{ fontSize: '28px', fontWeight: '900', color: '#4ade80', margin: '4px 0 0 0' }}>{stats.attendance}</h3>
           </div>
-          <div className="bg-[#12161a] border border-[#1f262e] p-5 rounded-xl flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Active Athletes</p>
-              <h3 className="text-3xl font-black mt-1">{stats.activeAthletes}</h3>
-            </div>
-            <Users className="text-gray-400 opacity-60" size={28} />
+          <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: '0' }}>Active Athletes</p>
+            <h3 style={{ fontSize: '28px', fontWeight: '900', margin: '4px 0 0 0' }}>{stats.activeAthletes}</h3>
           </div>
-          <div className="bg-[#12161a] border border-[#1f262e] p-5 rounded-xl flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Flagged</p>
-              <h3 className="text-3xl font-black mt-1 text-red-500">{stats.flagged}</h3>
-            </div>
-            <ShieldAlert className="text-red-500 opacity-80" size={28} />
-          </div>
-          <div className="bg-[#12161a] border border-[#1f262e] p-5 rounded-xl flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">PRs This Week</p>
-              <h3 className="text-3xl font-black mt-1 text-yellow-500">--</h3>
-            </div>
-            <Award className="text-yellow-500 opacity-80" size={28} />
-          </div>
-          <div className="bg-[#12161a] border border-[#1f262e] p-5 rounded-xl flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Sessions / Week</p>
-              <h3 className="text-3xl font-black mt-1 text-blue-400">--</h3>
-            </div>
-            <Dumbbell className="text-blue-400 opacity-80" size={28} />
+          <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: '0' }}>Flagged Rows</p>
+            <h3 style={{ fontSize: '28px', fontWeight: '900', color: '#f87171', margin: '4px 0 0 0' }}>{stats.flagged}</h3>
           </div>
         </div>
 
-        {/* ROSTER COLUMNS */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black tracking-wide">Athlete Roster</h3>
-              <button className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Athlete</button>
-            </div>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-              <input 
-                type="text" placeholder="Search roster rows..." value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#12161a] border border-[#1f262e] rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-red-500 text-white"
-              />
-            </div>
-
-            <div className="bg-[#12161a] border border-[#1f262e] rounded-xl overflow-hidden">
-              <div className="grid grid-cols-4 bg-[#1c232b] px-4 py-2.5 text-left text-xs font-bold uppercase text-gray-400 border-b border-[#1f262e]">
-                <div>Name</div>
-                <div className="text-center">Streak</div>
-                <div className="text-center">Missed</div>
-                <div className="text-center">Status</div>
-              </div>
-              <div className="divide-y divide-[#1f262e]">
-                {filteredAthletes.length > 0 ? (
-                  filteredAthletes.map((athlete) => (
-                    <div key={athlete.id} onClick={() => setSelectedAthlete(athlete)} className={`grid grid-cols-4 px-4 py-4 items-center text-sm cursor-pointer transition ${selectedAthlete?.id === athlete.id ? 'bg-[#1c232b]' : 'hover:bg-[#151a20]'}`}>
-                      <div className="font-bold">{athlete.name}</div>
-                      <div className="text-center font-semibold text-green-400">{athlete.streak_percentage}%</div>
-                      <div className="text-center text-gray-400">{athlete.missed_sessions}</div>
-                      <div className="text-center">
-                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${athlete.status === 'Flagged' ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
-                          {athlete.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-gray-500 text-sm">No roster records found.</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* INSPECTOR PROFILE DATA CARD */}
+        {/* DATA FLEX COLUMNS */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
           <div>
-            {selectedAthlete ? (
-              <div className="bg-[#12161a] border border-[#1f262e] rounded-xl p-6 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-[#1c232b] rounded-xl flex items-center justify-center font-black text-lg border border-[#2b3541]">
-                    {selectedAthlete.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black">{selectedAthlete.name}</h3>
-                    <p className="text-xs text-gray-500">{selectedAthlete.email}</p>
-                  </div>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '900', margin: '0' }}>Athlete Roster</h3>
+            </div>
 
-                <div className="bg-[#161b21] p-3 rounded-lg border border-[#1f262e]">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase">Weight Vitals</p>
-                  <p className="text-lg font-black mt-0.5">{selectedAthlete.weight_lbs ? `${selectedAthlete.weight_lbs} lbs` : '--'}</p>
-                </div>
-
-                {trendLogs.length > 0 && (
-                  <div className="border-t border-[#1f262e] pt-4">
-                    <h4 className="text-xs font-black uppercase text-gray-400 mb-2">Flying 10 Trend Analysis</h4>
-                    <div className="bg-[#161b21] border border-[#1f262e] rounded-lg p-3 h-28 flex items-end justify-between gap-2">
-                      {trendLogs.map((pt, idx) => (
-                        <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full">
-                          <span className="text-[9px] text-blue-300 font-mono mb-1">{pt.time}</span>
-                          <div style={{ height: `${pt.val}%` }} className="w-full rounded-t bg-blue-500"></div>
-                          <span className="text-[9px] text-gray-500 font-bold mt-1">{pt.label}</span>
-                        </div>
-                      ))}
+            <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', backgroundColor: '#1c232b', padding: '12px 16px', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af' }}>
+                <div>Name</div>
+                <div style={{ textAlign: 'center' }}>Streak</div>
+                <div style={{ textAlign: 'center' }}>Status</div>
+              </div>
+              <div style={{ color: '#ffffff' }}>
+                {filteredAthletes.map((athlete) => (
+                  <div key={athlete.id} onClick={() => setSelectedAthlete(athlete)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', padding: '16px', alignItems: 'center', fontSize: '14px', borderBottom: '1px solid #1f262e', cursor: 'pointer', backgroundColor: selectedAthlete?.id === athlete.id ? '#1c232b' : 'transparent' }}>
+                    <div style={{ fontWeight: 'bold' }}>{athlete.name}</div>
+                    <div style={{ textAlign: 'center', color: '#4ade80', fontWeight: 'bold' }}>{athlete.streak_percentage}%</div>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ backgroundColor: athlete.status === 'Flagged' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(74, 222, 128, 0.2)', color: athlete.status === 'Flagged' ? '#f87171' : '#4ade80', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
+                        {athlete.status}
+                      </span>
                     </div>
                   </div>
-                )}
+                ))}
+              </div>
+            </div>
+          </div>
 
-                <div className="border-t border-[#1f262e] pt-4">
-                  <h4 className="text-xs font-black uppercase text-gray-400 mb-1.5">Coach Internal Notes</h4>
-                  <p className="text-xs text-gray-300 bg-[#161b21] p-3 rounded-lg border border-[#1f262e]">
-                    {selectedAthlete.coach_notes || "No session logs recorded yet."}
+          {/* INSPECTOR DATA CARD */}
+          <div>
+            {selectedAthlete && (
+              <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '24px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '900', margin: '0 0 4px 0' }}>{selectedAthlete.name}</h3>
+                <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 24px 0' }}>{selectedAthlete.email}</p>
+
+                <div style={{ backgroundColor: '#1c232b', padding: '12px', borderRadius: '8px', border: '1px solid #1f262e', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', margin: '0' }}>Weight Vitals</p>
+                  <p style={{ fontSize: '18px', fontWeight: '900', margin: '4px 0 0 0' }}>{selectedAthlete.weight_lbs ? `${selectedAthlete.weight_lbs} lbs` : '--'}</p>
+                </div>
+
+                <div style={{ borderTop: '1px solid #1f262e', paddingTop: '16px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: '900', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 8px 0' }}>Coach Internal Notes</p>
+                  <p style={{ fontSize: '13px', color: '#d1d5db', backgroundColor: '#1c232b', padding: '12px', borderRadius: '8px', border: '1px solid #1f262e', margin: '0' }}>
+                    {selectedAthlete.coach_notes || "No log notes filed yet."}
                   </p>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 text-sm py-12 bg-[#12161a] border border-[#1f262e] rounded-xl">
-                No active athlete row selected.
               </div>
             )}
           </div>
