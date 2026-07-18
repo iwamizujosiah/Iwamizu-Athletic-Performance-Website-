@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase.js';
 import { 
@@ -32,7 +34,6 @@ export default function CoachingDashboard() {
   // Verify access key to ensure only YOU can register/view this portal
   const handleVerifyKey = (e) => {
     e.preventDefault();
-    // Replace 'COACH_SECURE_2026' with whatever password you want to use
     if (accessKey === 'COACH_SECURE_2026') {
       setIsAuthorized(true);
       setAuthError('');
@@ -58,7 +59,6 @@ export default function CoachingDashboard() {
       try {
         setLoading(true);
         
-        // Fetch all athletes from synchronized spreadsheet tables
         const { data: athletesData, error: athleteErr } = await supabase
           .from('athletes')
           .select('*')
