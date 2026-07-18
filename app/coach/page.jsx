@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/app/lib/supabase.js';
+import { supabase } from '../../lib/supabase.jsx';
 import { 
   Users, Dumbbell, Calendar, MessageSquare, Settings, 
   Search, ShieldAlert, Award, Activity, TrendingDown, Plus 
