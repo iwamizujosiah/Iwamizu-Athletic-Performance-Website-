@@ -212,7 +212,7 @@ export default function CoachingDashboard() {
         workout_id: newWorkoutId,
         exercise_name: item.name,
         block_type: item.block_type,
-        modality: item.modality,
+        modality: item.modality || 'Bodyweight', 
         tracking_unit: item.tracking_unit,
         sets: parseInt(item.sets) || 3,
         reps: item.reps ? String(item.reps) : null,
@@ -276,7 +276,7 @@ export default function CoachingDashboard() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontFamily: 'sans-serif' }}>
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textalign: 'center' }}>
           <Activity className="animate-spin" size={40} style={{ color: '#dc2626', margin: '0 auto 8px auto' }} />
           <p style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af' }}>Syncing Database Curriculum Vault...</p>
         </div>
@@ -537,7 +537,7 @@ export default function CoachingDashboard() {
                         {/* COLUMN: REST INTERVAL SELECTION TIMER */}
                         <div>
                           <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '4px' }}>
-                            <Timer size={10} /> Rest Interval
+                            <Timer size={10} /> Rest
                           </label>
                           <select 
                             value={item.rest_timer} 
@@ -554,7 +554,7 @@ export default function CoachingDashboard() {
                           </select>
                         </div>
 
-                        {/* REMOVE ITEM AXE BUTTON */}
+                        {/* REMOVE ITEM BUTTON */}
                         <button onClick={() => removeExerciseFromWorkout(item.uniqueId)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
                           <Trash2 size={16} />
                         </button>
