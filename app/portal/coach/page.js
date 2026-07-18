@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 // Force the global Tailwind styles to load directly into this deep route
-import "../../../globals.css";
+import "../../globals.css";
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase.js';
