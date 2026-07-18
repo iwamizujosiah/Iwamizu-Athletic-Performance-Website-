@@ -2,11 +2,14 @@
 
 export const dynamic = "force-dynamic";
 
+// Force the global Tailwind styles to load directly into this deep route
+import "../../../globals.css";
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase.js';
 import { 
   Users, Dumbbell, Calendar, MessageSquare, Settings, 
-  Search, ShieldAlert, Award, Activity, TrendingDown, Plus, Lock, KeyRound
+  Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound
 } from 'lucide-react';
 
 export default function CoachingDashboard() {
@@ -174,7 +177,6 @@ export default function CoachingDashboard() {
     );
   }
 
-  // Live Premium Layout Render
   return (
     <div className="flex min-h-screen bg-[#0d0f12] text-white font-sans">
       
@@ -185,7 +187,7 @@ export default function CoachingDashboard() {
             <h1 className="text-xl font-black tracking-wider text-red-600">IWAMIZU</h1>
             <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Athletic Performance</p>
             <div className="mt-4 bg-[#1c232b] px-3 py-2 rounded border border-[#2b3541]">
-              <p className="text-xs text-gray-450 uppercase font-bold">Portal Layer Active</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">Portal Layer Active</p>
             </div>
           </div>
 
@@ -218,7 +220,7 @@ export default function CoachingDashboard() {
           <p className="text-sm text-gray-400">Spreadsheet Stream: <span className="text-green-400 font-semibold">Online Live</span></p>
         </div>
 
-        {/* MOCKUP METRIC BLOCKS */}
+        {/* METRIC BLOCKS */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-[#12161a] border border-[#1f262e] p-5 rounded-xl flex items-center justify-between">
             <div>
