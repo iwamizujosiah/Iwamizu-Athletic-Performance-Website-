@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase.js';
 import { 
   Users, Dumbbell, Calendar, MessageSquare, Settings, 
-  Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Zap
+  Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound
 } from 'lucide-react';
 
 export default function CoachingDashboard() {
@@ -115,7 +115,7 @@ export default function CoachingDashboard() {
         }));
         setTrendLogs(mappedLogs);
       } else {
-        // Fallback mockup data mirroring your dashboard log
+        // Mockup trend points matching your UI dashboard logs
         setTrendLogs([
           { label: 'S1', val: 40, time: '1.11s' },
           { label: 'S2', val: 55, time: '1.06s' },
@@ -239,20 +239,25 @@ export default function CoachingDashboard() {
       {/* SIDEBAR NAVIGATION */}
       <aside style={{ width: '260px', backgroundColor: '#12161a', borderRight: '1px solid #1f262e', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '24px', flexShrink: 0, boxSizing: 'border-box' }}>
         <div style={{ width: '100%' }}>
+          
           {/* BRANDING LOGO PLACEMENT SECTION */}
           <div style={{ marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              backgroundColor: 'rgba(220, 38, 38, 0.1)',
-              border: '1px solid rgba(220, 38, 38, 0.3)',
+              backgroundColor: '#12161a',
               borderRadius: '8px',
               width: '40px',
               height: '40px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              flexShrink: 0
+              flexShrink: 0,
+              overflow: 'hidden'
             }}>
-              <Zap size={22} style={{ color: '#dc2626' }} />
+              <img 
+                src="/logo.png" 
+                alt="Iwamizu Logo" 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
             </div>
             <div>
               <h1 style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '0.05em', color: '#dc2626', margin: '0' }}>IWAMIZU</h1>
@@ -273,8 +278,8 @@ export default function CoachingDashboard() {
           </nav>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', pt: '16px', borderTop: '1px solid #1f262e' }}>
-          <div style={{ width: '40px', height: '40px', backgroundColor: '#dc2626', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyCenter: 'center', fontWeight: 'bold', color: '#ffffff', textAlign: 'center', lineHeight: '40px', fontSize: '14px' }}>JI</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '16px', borderTop: '1px solid #1f262e' }}>
+          <div style={{ width: '40px', height: '40px', backgroundColor: '#dc2626', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#ffffff', textAlign: 'center', lineHeight: '40px', fontSize: '14px' }}>JI</div>
           <div>
             <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0' }}>Josiah Iwamizu</h4>
             <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0' }}>Head Coach</p>
@@ -352,7 +357,6 @@ export default function CoachingDashboard() {
                     </div>
                   ))
                 ) : (
-                  // Safe mockup layout block matches structure if spreadsheet loading has lag
                   <div key="mock-1" onClick={() => setSelectedAthlete({ name: 'John Doe', email: 'john@doe.com', weight_lbs: 178, coach_notes: 'Strong week, hit a new vertical PB Thursday.' })} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', padding: '16px', alignItems: 'center', fontSize: '14px', borderBottom: '1px solid #1f262e', cursor: 'pointer', backgroundColor: '#1c232b' }}>
                     <div style={{ fontWeight: 'bold' }}>John Doe</div>
                     <div style={{ textAlign: 'center', color: '#4ade80', fontWeight: 'bold' }}>92%</div>
@@ -375,7 +379,7 @@ export default function CoachingDashboard() {
                   <p style={{ fontSize: '18px', fontWeight: '900', margin: '4px 0 0 0' }}>{selectedAthlete.weight_lbs ? `${selectedAthlete.weight_lbs} lbs` : '178 lbs'}</p>
                 </div>
 
-                {/* GRAPH WORKFLOW INLINE TREND MAPPORTAL */}
+                {/* GRAPH TIMELINE INLINE TREND CHART */}
                 <div style={{ marginBottom: '16px' }}>
                   <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', margin: '0 0 8px 0' }}>Flying 10 Performance Trend</p>
                   <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '100px', backgroundColor: '#1c232b', padding: '12px', borderRadius: '8px', border: '1px solid #1f262e' }}>
