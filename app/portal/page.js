@@ -40,30 +40,64 @@ export default function AthletePortal() {
     }
   };
 
-  // 1. GATEKEEPER SCREEN (Only unlocks with code)
+  // 1. GATEKEEPER SCREEN (With Added Coach Portal Navigation Link)
   if (!isAuthenticated) {
     return (
-      <main style={{ fontFamily: 'sans-serif', backgroundColor: '#000', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-        <div style={{ width: '100%', maxWidth: '400px', background: '#111', padding: '40px 30px', borderRadius: '12px', border: '1px solid #222', textAlign: 'center' }}>
-          <img src="/logo.png" alt="Logo" style={{ height: '50px', marginBottom: '20px' }} />
-          <h1 style={{ fontSize: '1.8rem', marginBottom: '10px', color: '#fff' }}>Athlete Portal</h1>
-          <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '30px' }}>Enter your exclusive access code to unlock your training dashboard.</p>
-          
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <input 
-              type="text" 
-              placeholder="IW-XXXX-XXXX" 
-              value={accessCode}
-              onChange={(e) => setAccessCode(e.target.value)}
-              disabled={loading}
-              style={{ padding: '15px', borderRadius: '6px', border: '1px solid #333', backgroundColor: '#000', color: '#fff', fontSize: '1.2rem', textAlign: 'center', letterSpacing: '2px', fontWeight: 'bold' }}
-            />
-            {error && <p style={{ color: brandRed, margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>{error}</p>}
-            <button type="submit" disabled={loading} style={{ background: brandRed, color: '#fff', border: 'none', padding: '15px', borderRadius: '6px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-              {loading ? "Unlocking..." : "Unlock Dashboard"}
-            </button>
-          </form>
-          <a href="/" style={{ display: 'inline-block', marginTop: '25px', color: '#555', textDecoration: 'none', fontSize: '0.85rem' }}>Back to Home</a>
+      <main style={{ fontFamily: 'sans-serif', backgroundColor: '#000', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '0' }}>
+        
+        {/* TOP HOMEPAGE NAVBAR LINKING COACH PORTAL */}
+        <header style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '20px 40px',
+          backgroundColor: '#000',
+          borderBottom: '1px solid #111'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <img src="/logo.png" alt="Logo" style={{ height: '35px' }} />
+          </div>
+
+          <nav style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            <span style={{ color: brandRed, fontSize: '14px', fontWeight: 'bold' }}>
+              Client Portal
+            </span>
+            <a href="/portal/coach" style={{
+              color: '#ffffff',
+              backgroundColor: 'rgba(255, 0, 0, 0.1)',
+              border: `1px solid ${brandRed}`,
+              padding: '6px 14px',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}>
+              Coach Portal
+            </a>
+          </nav>
+        </header>
+
+        {/* LOGOFF / ENTRY PORTAL INNER BOX */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+          <div style={{ width: '100%', maxWidth: '400px', background: '#111', padding: '40px 30px', borderRadius: '12px', border: '1px solid #222', textAlign: 'center' }}>
+            <h1 style={{ fontSize: '1.8rem', marginBottom: '10px', color: '#fff' }}>Athlete Portal</h1>
+            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '30px' }}>Enter your exclusive access code to unlock your training dashboard.</p>
+            
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <input 
+                type="text" 
+                placeholder="IW-XXXX-XXXX" 
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                disabled={loading}
+                style={{ padding: '15px', borderRadius: '6px', border: '1px solid #333', backgroundColor: '#000', color: '#fff', fontSize: '1.2rem', textAlign: 'center', letterSpacing: '2px', fontWeight: 'bold' }}
+              />
+              {error && <p style={{ color: brandRed, margin: 0, fontSize: '0.85rem', fontWeight: 'bold' }}>{error}</p>}
+              <button type="submit" disabled={loading} style={{ background: brandRed, color: '#fff', border: 'none', padding: '15px', borderRadius: '6px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                {loading ? "Unlocking..." : "Unlock Dashboard"}
+              </button>
+            </form>
+          </div>
         </div>
       </main>
     );
