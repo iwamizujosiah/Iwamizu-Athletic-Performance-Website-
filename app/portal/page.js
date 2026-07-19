@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../../lib/supabase.js';
 import { 
   Dumbbell, Timer, CheckCircle, Activity, Award, User, Lock, ArrowRight, Zap, Target, Flame, X
 } from 'lucide-react';
