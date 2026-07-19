@@ -25,7 +25,7 @@ export default function CoachingDashboard() {
 
   // Master Exercise Library States
   const [exerciseLibrary, setExerciseLibrary] = useState([]);
-  const [selectedBlockType, setSelectedBlockType] = useState('Activation'); // Activation, Movement, Strength
+  const [selectedBlockType, setSelectedBlockType] = useState('Activation'); // Activation, Movement, Strength, Athletic Block
   
   // Current Workout Being Built
   const [targetAthleteId, setTargetAthleteId] = useState('');
@@ -93,7 +93,6 @@ export default function CoachingDashboard() {
             flagged: flaggedCount
           }));
         } else {
-          // Fallback static roster if table has not been initialized
           const fallbackAthletes = [
             { id: 'a1', name: 'Devon Allen', weight_lbs: 185, status: 'On Track', streak_percentage: 96, email: 'd.allen@olympic.sprint' },
             { id: 'a2', name: 'Christian Coleman', weight_lbs: 174, status: 'On Track', streak_percentage: 94, email: 'coleman@speed.club' },
@@ -125,19 +124,25 @@ export default function CoachingDashboard() {
             { id: 'f4', name: 'Spanish Squat Isometric Hold', block_type: 'Activation', modality: 'Banded', tracking_unit: 'seconds' },
             
             // MOVEMENT LAYER
-            { id: 'f5', name: 'Pogo Jumps (Ankle Stiffness)', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'reps' },
-            { id: 'f6', name: 'Countermovement Jump (CMJ)', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'inches' },
-            { id: 'f7', name: 'Falling Starts (Linear Acceleration)', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'distance' },
-            { id: 'f8', name: 'Flying 10 Meter Sprint', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'seconds' },
-            { id: 'f9', name: '5-10-5 Pro Agility Shuttle', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'seconds' },
+            { id: 'f5', name: 'High Knees Drill', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'distance' },
+            { id: 'f6', name: 'Frankensteins Drill', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'distance' },
+            { id: 'f7', name: 'A-Skips (Cadence Mechanics)', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'distance' },
+            { id: 'f8', name: 'Worlds Greatest Stretch', block_type: 'Movement', modality: 'Bodyweight', tracking_unit: 'reps' },
+
+            // ATHLETIC BLOCK LAYER (Plyos, Speed & Explosive Power)
+            { id: 'f9', name: 'Pogo Jumps (Ankle Stiffness)', block_type: 'Athletic Block', modality: 'Bodyweight', tracking_unit: 'reps' },
+            { id: 'f10', name: 'Countermovement Jump (CMJ)', block_type: 'Athletic Block', modality: 'Bodyweight', tracking_unit: 'inches' },
+            { id: 'f11', name: 'Flying 10 Meter Sprint', block_type: 'Athletic Block', modality: 'Bodyweight', tracking_unit: 'seconds' },
+            { id: 'f12', name: 'Falling Starts (Linear Accel)', block_type: 'Athletic Block', modality: 'Bodyweight', tracking_unit: 'distance' },
+            { id: 'f13', name: '5-10-5 Pro Agility Shuttle', block_type: 'Athletic Block', modality: 'Bodyweight', tracking_unit: 'seconds' },
 
             // STRENGTH LAYER
-            { id: 'f10', name: 'Barbell Back Squat', block_type: 'Strength', modality: 'Barbell', tracking_unit: 'lbs' },
-            { id: 'f11', name: 'Barbell RDL', block_type: 'Strength', modality: 'Barbell', tracking_unit: 'lbs' },
-            { id: 'f12', name: 'Clean (All Variants)', block_type: 'Strength', modality: 'Barbell', tracking_unit: 'lbs' },
-            { id: 'f13', name: 'Dumbbell Bulgarian Split Squat', block_type: 'Strength', modality: 'Dumbbell', tracking_unit: 'lbs' },
-            { id: 'f14', name: 'MB Overhead Backwards Toss', block_type: 'Strength', modality: 'Medicine Ball', tracking_unit: 'distance' },
-            { id: 'f15', name: 'MB Rotational Wall Slam', block_type: 'Strength', modality: 'Medicine Ball', tracking_unit: 'reps' }
+            { id: 'f14', name: 'Barbell Back Squat', block_type: 'Strength', modality: 'Barbell', tracking_unit: 'lbs' },
+            { id: 'f15', name: 'Barbell RDL', block_type: 'Strength', modality: 'Barbell', tracking_unit: 'lbs' },
+            { id: 'f16', name: 'Clean (All Variants)', block_type: 'Strength', modality: 'Barbell', tracking_unit: 'lbs' },
+            { id: 'f17', name: 'Dumbbell Bulgarian Split Squat', block_type: 'Strength', modality: 'Dumbbell', tracking_unit: 'lbs' },
+            { id: 'f18', name: 'MB Overhead Backwards Toss', block_type: 'Strength', modality: 'Medicine Ball', tracking_unit: 'distance' },
+            { id: 'f19', name: 'MB Rotational Wall Slam', block_type: 'Strength', modality: 'Medicine Ball', tracking_unit: 'reps' }
           ]);
         }
 
@@ -213,7 +218,7 @@ export default function CoachingDashboard() {
   };
 
   const removeExerciseFromWorkout = (uniqueId) => {
-    setCurrentPrescription(currentPrescription.filter(item => item.uniqueId !== uniqueId));
+    setCurrentPrescription(currentPrescription.filter(item !== uniqueId));
   };
 
   // Commit Workout Prescription Live to Relational Supabase Tables
@@ -226,7 +231,6 @@ export default function CoachingDashboard() {
     try {
       setSaveStatus('Publishing routines to cloud database...');
       
-      // Step 1: Insert primary Workout master card block
       const { data: workoutData, error: workoutErr } = await supabase
         .from('workouts')
         .insert([{
@@ -240,7 +244,6 @@ export default function CoachingDashboard() {
 
       const newWorkoutId = workoutData.id;
 
-      // Step 2: Format rows cleanly to guarantee structural data mapping safety
       const itemsToInsert = currentPrescription.map((item, idx) => ({
         workout_id: newWorkoutId,
         exercise_name: item.name,
@@ -256,7 +259,6 @@ export default function CoachingDashboard() {
         order_index: idx
       }));
 
-      // Step 3: Bulk save child cards to child data table links
       const { error: itemsErr } = await supabase
         .from('workout_items')
         .insert(itemsToInsert);
@@ -278,7 +280,6 @@ export default function CoachingDashboard() {
 
   const filteredExercises = exerciseLibrary.filter(ex => ex.block_type === selectedBlockType);
 
-  // Gated Authorization Shield Layout Screen
   if (!isAuthorized) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', color: '#ffffff', padding: '24px' }}>
@@ -497,9 +498,9 @@ export default function CoachingDashboard() {
                 <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 12px 0', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em' }}>Database Curriculum</h4>
                 
                 {/* SYSTEM FLOW BLOCK BUTTON TABS */}
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px' }}>
-                  {['Activation', 'Movement', 'Strength'].map(b => (
-                    <button key={b} onClick={() => setSelectedBlockType(b)} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: selectedBlockType === b ? '#dc2626' : 'transparent', color: '#ffffff' }}>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', overflowX: 'auto' }}>
+                  {['Activation', 'Movement', 'Athletic Block', 'Strength'].map(b => (
+                    <button key={b} onClick={() => setSelectedBlockType(b)} style={{ flex: '1 0 auto', padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: selectedBlockType === b ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
                       {b}
                     </button>
                   ))}
