@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../../lib/supabase.js';
 import { 
   Users, Dumbbell, Calendar, MessageSquare, Settings, 
   Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Trash2, CheckCircle, Timer
@@ -288,8 +288,8 @@ export default function CoachingDashboard() {
           <div style={{ width: '64px', height: '64px', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px auto' }}>
             <Lock size={28} style={{ color: '#dc2626' }} />
           </div>
-          <h1 style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '0.05em', margin: '0' }}>IWAMIZU ATHLETIC PORTAL</h1>
-          <p style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' }}>Coach Registration Lock</p>
+          <h1 style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '0.05em', margin: '0' }}>GUIDANCE CORE ENTRY</h1>
+          <p style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' }}>System Administrator Core Lock</p>
           
           <form onSubmit={handleVerifyKey} style={{ marginTop: '32px', textAlign: 'left' }}>
             <div style={{ marginBottom: '16px' }}>
@@ -310,7 +310,7 @@ export default function CoachingDashboard() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontFamily: 'sans-serif' }}>
-        <div style={{ textAlignment: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
           <Activity className="animate-spin" size={40} style={{ color: '#dc2626', margin: '0 auto 8px auto' }} />
           <p style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af' }}>Syncing Performance Architecture Ecosystem...</p>
         </div>
@@ -364,7 +364,7 @@ export default function CoachingDashboard() {
           <>
             <div style={{ marginBottom: '32px' }}>
               <h2 style={{ fontSize: '26px', fontWeight: '900', margin: '0' }}>Good afternoon, Coach.</h2>
-              <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0 0' }}>Spreadsheet Stream: <span style={{ color: '#4ade80', fontWeight: '600' }}>Online Live</span></p>
+              <p style={{ fontSize: '14px', color: '#4ade80', margin: '4px 0 0 0' }}>Spreadsheet Stream: <span style={{ color: '#4ade80', fontWeight: '600' }}>Online Live</span></p>
             </div>
 
             {/* METRIC BANNER GRID */}
@@ -511,7 +511,7 @@ export default function CoachingDashboard() {
                 <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
                   {filteredExercises.length > 0 ? (
                     filteredExercises.map(ex => (
-                      <button key={ex.id} onClick={() => addExerciseToWorkout(ex)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlignment: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.15s' }}>
+                      <button key={ex.id} onClick={() => addExerciseToWorkout(ex)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.15s' }}>
                         <span>{ex.name}</span>
                         <span style={{ fontSize: '10px', opacity: 0.5, backgroundColor: '#0d0f12', padding: '2px 6px', borderRadius: '4px' }}>{ex.modality}</span>
                       </button>
@@ -542,7 +542,7 @@ export default function CoachingDashboard() {
                         {/* COLUMN: SETS INPUT */}
                         <div>
                           <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Sets</label>
-                          <input type="number" value={item.sets} onChange={(e) => updatePrescriptionField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlignment: 'center' }} />
+                          <input type="number" value={item.sets} onChange={(e) => updatePrescriptionField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlign: 'center' }} />
                         </div>
 
                         {/* DYNAMIC PARAMETER TARGET DEPENDING ON THE EXERCISE'S TRACKING UNIT */}
