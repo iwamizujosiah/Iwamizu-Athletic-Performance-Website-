@@ -65,7 +65,8 @@ export default function AthleteGatePortal() {
 
       if (error) {
         console.error("Supabase pull mismatch:", error.message);
-        setAuthError('❌ Connection mismatch with database roster.');
+        // Show exact error message to debug permission/table issues
+        setAuthError(`❌ DB Error: ${error.message} (${error.code || 'No Code'})`);
         setLoadingWorkout(false);
         return;
       }
@@ -88,7 +89,7 @@ export default function AthleteGatePortal() {
       fetchLatestWorkout(athleteData.id);
 
     } catch (err) {
-      setAuthError('Network timeout connecting to performance registry.');
+      setAuthError(`Network timeout connecting to performance registry: ${err.message}`);
     } finally {
       setLoadingWorkout(false);
     }
@@ -166,7 +167,7 @@ export default function AthleteGatePortal() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', color: '#ffffff', padding: '24px' }}>
         <div style={{ width: '100%', maxWidth: '420px', backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '16px', padding: '32px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)' }}>
-          <div style={{ width: '56px', height: '56px', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', center: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+          <div style={{ width: '56px', height: '56px', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
             <Zap size={26} style={{ color: '#dc2626' }} />
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: '900', margin: '0', letterSpacing: '0.02em' }}>ATHLETE PROFILE GATE</h2>
@@ -183,7 +184,7 @@ export default function AthleteGatePortal() {
                 style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '10px', padding: '14px', fontSize: '15px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
-            {authError && <p style={{ fontSize: '13px', color: '#ef4444', fontWeight: '600', margin: '0 0 16px 0' }}>{authError}</p>}
+            {authError && <p style={{ fontSize: '13px', color: '#ef4444', fontWeight: '600', margin: '0 0 16px 0', lineHeight: '1.4' }}>{authError}</p>}
             <button type="submit" style={{ width: '100%', backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '14px', borderRadius: '10px', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)' }}>
               Sync Performance Line <ArrowRight size={16} />
             </button>
