@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase.js';
+import { supabase } from '@/lib/supabase';
 import { 
   Users, Dumbbell, Calendar, MessageSquare, Settings, 
   Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Trash2, CheckCircle, Timer
@@ -310,7 +310,7 @@ export default function CoachingDashboard() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontFamily: 'sans-serif' }}>
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlignment: 'center' }}>
           <Activity className="animate-spin" size={40} style={{ color: '#dc2626', margin: '0 auto 8px auto' }} />
           <p style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#9ca3af' }}>Syncing Performance Architecture Ecosystem...</p>
         </div>
@@ -406,16 +406,16 @@ export default function CoachingDashboard() {
                 <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', overflow: 'hidden' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', backgroundColor: '#1c232b', padding: '12px 16px', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af' }}>
                     <div>Name</div>
-                    <div style={{ textAlign: 'center' }}>Streak</div>
-                    <div style={{ textAlign: 'center' }}>Status</div>
+                    <div style={{ textAlignment: 'center' }}>Streak</div>
+                    <div style={{ textAlignment: 'center' }}>Status</div>
                   </div>
                   <div style={{ color: '#ffffff' }}>
                     {filteredAthletes.length > 0 ? (
                       filteredAthletes.map((athlete) => (
                         <div key={athlete.id} onClick={() => setSelectedAthlete(athlete)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', padding: '16px', alignItems: 'center', fontSize: '14px', borderBottom: '1px solid #1f262e', cursor: 'pointer', backgroundColor: selectedAthlete?.id === athlete.id ? '#1c232b' : 'transparent' }}>
                           <div style={{ fontWeight: 'bold' }}>{athlete.name}</div>
-                          <div style={{ textAlign: 'center', color: '#4ade80', fontWeight: 'bold' }}>{athlete.streak_percentage || 92}%</div>
-                          <div style={{ textAlign: 'center' }}>
+                          <div style={{ textAlignment: 'center', color: '#4ade80', fontWeight: 'bold' }}>{athlete.streak_percentage || 92}%</div>
+                          <div style={{ textAlignment: 'center' }}>
                             <span style={{ backgroundColor: athlete.status === 'Flagged' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(74, 222, 128, 0.2)', color: athlete.status === 'Flagged' ? '#f87171' : '#4ade80', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
                               {athlete.status || 'On Track'}
                             </span>
@@ -423,7 +423,7 @@ export default function CoachingDashboard() {
                         </div>
                       ))
                     ) : (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af' }}>No matching athletes found.</div>
+                      <div style={{ padding: '20px', textAlignment: 'center', color: '#9ca3af' }}>No matching athletes found.</div>
                     )}
                   </div>
                 </div>
@@ -462,7 +462,7 @@ export default function CoachingDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ textAlign: 'center', color: '#9ca3af', padding: '24px', backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px' }}>Select an athlete to view metrics.</div>
+                  <div style={{ textAlignment: 'center', color: '#9ca3af', padding: '24px', backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px' }}>Select an athlete to view metrics.</div>
                 )}
               </div>
             </div>
@@ -511,13 +511,13 @@ export default function CoachingDashboard() {
                 <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
                   {filteredExercises.length > 0 ? (
                     filteredExercises.map(ex => (
-                      <button key={ex.id} onClick={() => addExerciseToWorkout(ex)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.15s' }}>
+                      <button key={ex.id} onClick={() => addExerciseToWorkout(ex)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlignment: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.15s' }}>
                         <span>{ex.name}</span>
                         <span style={{ fontSize: '10px', opacity: 0.5, backgroundColor: '#0d0f12', padding: '2px 6px', borderRadius: '4px' }}>{ex.modality}</span>
                       </button>
                     ))
                   ) : (
-                    <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', margin: '20px 0' }}>No exercises found for this block sequence selection.</p>
+                    <p style={{ fontSize: '12px', color: '#9ca3af', textAlignment: 'center', margin: '20px 0' }}>No exercises found for this block sequence selection.</p>
                   )}
                 </div>
               </div>
@@ -542,7 +542,7 @@ export default function CoachingDashboard() {
                         {/* COLUMN: SETS INPUT */}
                         <div>
                           <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Sets</label>
-                          <input type="number" value={item.sets} onChange={(e) => updatePrescriptionField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlign: 'center' }} />
+                          <input type="number" value={item.sets} onChange={(e) => updatePrescriptionField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlignment: 'center' }} />
                         </div>
 
                         {/* DYNAMIC PARAMETER TARGET DEPENDING ON THE EXERCISE'S TRACKING UNIT */}
@@ -595,7 +595,7 @@ export default function CoachingDashboard() {
                       </div>
                     ))
                   ) : (
-                    <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+                    <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlignment: 'center', color: '#9ca3af' }}>
                       <Dumbbell size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
                       <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>The training card is currently blank.</p>
                       <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Click individual items from the library catalog layout menu on the left to add rows.</p>
@@ -614,7 +614,7 @@ export default function CoachingDashboard() {
                 )}
 
                 {saveStatus && (
-                  <p style={{ fontSize: '13px', color: '#fbbf24', textAlign: 'right', margin: '12px 0 0 0', fontWeight: '600' }}>
+                  <p style={{ fontSize: '13px', color: '#fbbf24', textAlignment: 'right', margin: '12px 0 0 0', fontWeight: '600' }}>
                     {saveStatus}
                   </p>
                 )}
