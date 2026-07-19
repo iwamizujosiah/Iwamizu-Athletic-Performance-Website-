@@ -48,34 +48,37 @@ export default function AthleteGatePortal() {
     }
   }, []);
 
-  // Validate athlete against database checking BOTH access code and name matches
+  // Validate athlete against database checking BOTH access code and name matches cleanly
   const handleAthleteLogin = async (e) => {
     e.preventDefault();
-    const input = athleteIdentifier.trim();
+    const input = athleteIdentifier.trim().toLowerCase();
     if (!input) return;
 
     try {
       setAuthError('');
+      setLoadingWorkout(true);
       
-      // 1. Try searching by access_code first
-      let { data: athleteData, error } = await supabase
+      // Pull down roster rows safely without strict row count constraints
+      const { data: athletesData, error } = await supabase
         .from('athletes')
-        .select('*')
-        .eq('access_code', input)
-        .maybeSingle();
+        .select('*');
 
-      // 2. Fallback: If no code matches, try searching by full registered name
-      if (!athleteData) {
-        const { data: nameMatchData } = await supabase
-          .from('athletes')
-          .select('*')
-          .ilike('name', input)
-          .maybeSingle();
-        athleteData = nameMatchData;
+      if (error) {
+        console.error("Supabase pull mismatch:", error.message);
+        setAuthError('❌ Connection mismatch with database roster.');
+        setLoadingWorkout(false);
+        return;
       }
+
+      // Find a clean matching profile row using robust JavaScript filtering
+      const athleteData = athletesData?.find(a => 
+        (a.access_code && String(a.access_code).toLowerCase() === input) ||
+        (a.name && String(a.name).toLowerCase() === input)
+      );
 
       if (!athleteData) {
         setAuthError('❌ Profile row not found. Check spelling or use your unique Sheet Access Code.');
+        setLoadingWorkout(false);
         return;
       }
 
@@ -86,6 +89,8 @@ export default function AthleteGatePortal() {
 
     } catch (err) {
       setAuthError('Network timeout connecting to performance registry.');
+    } finally {
+      setLoadingWorkout(false);
     }
   };
 
@@ -161,7 +166,7 @@ export default function AthleteGatePortal() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', color: '#ffffff', padding: '24px' }}>
         <div style={{ width: '100%', maxWidth: '420px', backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '16px', padding: '32px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)' }}>
-          <div style={{ width: '56px', height: '56px', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+          <div style={{ width: '56px', height: '56px', backgroundColor: 'rgba(220, 38, 38, 0.1)', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', center: 'center', justifyContent: 'center', marginBottom: '20px' }}>
             <Zap size={26} style={{ color: '#dc2626' }} />
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: '900', margin: '0', letterSpacing: '0.02em' }}>ATHLETE PROFILE GATE</h2>
