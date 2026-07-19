@@ -48,21 +48,34 @@ export default function AthleteGatePortal() {
     }
   }, []);
 
-  // Validate athlete against database lines
+  // Validate athlete against database checking BOTH access code and name matches
   const handleAthleteLogin = async (e) => {
     e.preventDefault();
-    if (!athleteIdentifier.trim()) return;
+    const input = athleteIdentifier.trim();
+    if (!input) return;
 
     try {
       setAuthError('');
-      const { data: athleteData, error } = await supabase
+      
+      // 1. Try searching by access_code first
+      let { data: athleteData, error } = await supabase
         .from('athletes')
         .select('*')
-        .ilike('name', athleteIdentifier.trim())
-        .single();
+        .eq('access_code', input)
+        .maybeSingle();
 
-      if (error || !athleteData) {
-        setAuthError('❌ Profile row not found. Check spelling or request coach onboarding access.');
+      // 2. Fallback: If no code matches, try searching by full registered name
+      if (!athleteData) {
+        const { data: nameMatchData } = await supabase
+          .from('athletes')
+          .select('*')
+          .ilike('name', input)
+          .maybeSingle();
+        athleteData = nameMatchData;
+      }
+
+      if (!athleteData) {
+        setAuthError('❌ Profile row not found. Check spelling or use your unique Sheet Access Code.');
         return;
       }
 
@@ -156,10 +169,10 @@ export default function AthleteGatePortal() {
 
           <form onSubmit={handleAthleteLogin}>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>Enter Your Full Registered Name</label>
+              <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>Enter Registered Name or Access Code</label>
               <input 
                 type="text" 
-                placeholder="e.g. Katey Iwamizu" 
+                placeholder="e.g. Katey Iwamizu or IW-KI-7909" 
                 value={athleteIdentifier} 
                 onChange={(e) => setAthleteIdentifier(e.target.value)} 
                 style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '10px', padding: '14px', fontSize: '15px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }}
