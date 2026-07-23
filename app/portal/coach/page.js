@@ -84,6 +84,9 @@ export default function CoachingDashboard() {
   const [libraryToast, setLibraryToast] = useState('');
   const [topProgrammed, setTopProgrammed] = useState([]);
   const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
+  const [exerciseAlternatesMap, setExerciseAlternatesMap] = useState({}); // exercise_id -> [alternate_exercise_id,...], bidirectional
+  const [exerciseFormAlternates, setExerciseFormAlternates] = useState([]); // ids selected in the Add/Edit modal
+  const [alternatePickerValue, setAlternatePickerValue] = useState('');
 
   // Current Workout Being Built
   const [targetAthleteId, setTargetAthleteId] = useState('');
@@ -226,6 +229,22 @@ export default function CoachingDashboard() {
           ]);
         }
 
+        // 3. Fetch Alternate/Modified Exercise Links (bidirectional)
+        const { data: altData, error: altErr } = await supabase
+          .from('exercise_alternates')
+          .select('*');
+
+        if (!altErr && altData) {
+          const altMap = {};
+          altData.forEach(row => {
+            if (!altMap[row.exercise_id]) altMap[row.exercise_id] = [];
+            if (!altMap[row.alternate_exercise_id]) altMap[row.alternate_exercise_id] = [];
+            altMap[row.exercise_id].push(row.alternate_exercise_id);
+            altMap[row.alternate_exercise_id].push(row.exercise_id);
+          });
+          setExerciseAlternatesMap(altMap);
+        }
+
       } catch (err) {
         console.error("Dashboard engine failure:", err.message);
       } finally {
@@ -354,6 +373,8 @@ export default function CoachingDashboard() {
   const openAddExerciseModal = () => {
     setEditingExercise(null);
     setExerciseForm({ name: '', block_type: 'Activation', modality: 'Bodyweight', tracking_unit: 'reps', video_url: '' });
+    setExerciseFormAlternates([]);
+    setAlternatePickerValue('');
     setShowExerciseModal(true);
   };
 
@@ -366,7 +387,46 @@ export default function CoachingDashboard() {
       tracking_unit: ex.tracking_unit || 'reps',
       video_url: ex.video_url || ''
     });
+    setExerciseFormAlternates(exerciseAlternatesMap[ex.id] || []);
+    setAlternatePickerValue('');
     setShowExerciseModal(true);
+  };
+
+  const addAlternateToForm = (idStr) => {
+    const id = parseInt(idStr, 10);
+    if (!id || exerciseFormAlternates.includes(id)) return;
+    if (editingExercise && id === editingExercise.id) return;
+    setExerciseFormAlternates(prev => [...prev, id]);
+    setAlternatePickerValue('');
+  };
+
+  const removeAlternateFromForm = (id) => {
+    setExerciseFormAlternates(prev => prev.filter(x => x !== id));
+  };
+
+  // Replace every alternate link involving this exercise with the current selection
+  const syncExerciseAlternates = async (exerciseId, alternateIds) => {
+    await supabase.from('exercise_alternates').delete().eq('exercise_id', exerciseId);
+    await supabase.from('exercise_alternates').delete().eq('alternate_exercise_id', exerciseId);
+
+    if (alternateIds.length > 0) {
+      const rows = alternateIds.map(altId => ({ exercise_id: exerciseId, alternate_exercise_id: altId }));
+      const { error } = await supabase.from('exercise_alternates').insert(rows);
+      if (error) throw error;
+    }
+
+    setExerciseAlternatesMap(prev => {
+      const next = { ...prev };
+      // Strip this exercise out of every other exercise's list, then rebuild both directions
+      Object.keys(next).forEach(key => {
+        next[key] = next[key].filter(id => id !== exerciseId);
+      });
+      next[exerciseId] = alternateIds;
+      alternateIds.forEach(altId => {
+        next[altId] = next[altId] ? [...new Set([...next[altId], exerciseId])] : [exerciseId];
+      });
+      return next;
+    });
   };
 
   // Create or update a movement in the Supabase exercises table
@@ -383,6 +443,7 @@ export default function CoachingDashboard() {
     };
 
     try {
+      let savedExercise;
       if (editingExercise) {
         const { data, error } = await supabase
           .from('exercises')
@@ -391,6 +452,7 @@ export default function CoachingDashboard() {
           .select()
           .single();
         if (error) throw error;
+        savedExercise = data;
         setExerciseLibrary(prev => prev.map(ex => (ex.id === editingExercise.id ? data : ex)));
         setLibraryToast(`✅ Updated "${data.name}"`);
       } else {
@@ -400,9 +462,13 @@ export default function CoachingDashboard() {
           .select()
           .single();
         if (error) throw error;
+        savedExercise = data;
         setExerciseLibrary(prev => [...prev, data]);
         setLibraryToast(`✅ Added "${data.name}" to the library`);
       }
+
+      await syncExerciseAlternates(savedExercise.id, exerciseFormAlternates);
+
       setShowExerciseModal(false);
       setEditingExercise(null);
     } catch (err) {
@@ -416,6 +482,14 @@ export default function CoachingDashboard() {
       const { error } = await supabase.from('exercises').delete().eq('id', ex.id);
       if (error) throw error;
       setExerciseLibrary(prev => prev.filter(item => item.id !== ex.id));
+      setExerciseAlternatesMap(prev => {
+        const next = { ...prev };
+        delete next[ex.id];
+        Object.keys(next).forEach(key => {
+          next[key] = next[key].filter(id => id !== ex.id);
+        });
+        return next;
+      });
       setLibraryToast(`🗑️ Removed "${ex.name}"`);
     } catch (err) {
       setLibraryToast(`❌ ${err.message}`);
@@ -1317,6 +1391,12 @@ export default function CoachingDashboard() {
                       <span style={{ fontSize: '10px', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '3px 8px', borderRadius: '4px', color: '#d1d5db' }}>Tracks: {ex.tracking_unit || 'reps'}</span>
                     </div>
 
+                    {(exerciseAlternatesMap[ex.id] || []).length > 0 && (
+                      <p style={{ margin: '0', fontSize: '11px', color: '#9ca3af' }}>
+                        Alt: {(exerciseAlternatesMap[ex.id] || []).map(id => exerciseLibrary.find(e => e.id === id)?.name).filter(Boolean).join(', ')}
+                      </p>
+                    )}
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', borderTop: '1px solid #1f262e', paddingTop: '10px', marginTop: '2px' }}>
                       <button onClick={() => handleQuickAddToProgram(ex)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#4ade80', fontWeight: 'bold', fontSize: '12px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer' }}>
                         <Plus size={13} /> Add to Program
@@ -1614,6 +1694,32 @@ export default function CoachingDashboard() {
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Coaching Video Link (optional)</label>
                 <input type="url" value={exerciseForm.video_url} onChange={(e) => setExerciseForm({ ...exerciseForm, video_url: e.target.value })} placeholder="https://youtube.com/watch?v=..." style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Alternate / Modified Exercises</label>
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: '0 0 8px 0' }}>Athletes will be able to swap to these in their workout view.</p>
+                <select value={alternatePickerValue} onChange={(e) => addAlternateToForm(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px', fontSize: '13px', color: '#ffffff', outline: 'none', cursor: 'pointer', marginBottom: '10px' }}>
+                  <option value="">+ Add an alternate...</option>
+                  {exerciseLibrary
+                    .filter(ex => (!editingExercise || ex.id !== editingExercise.id) && !exerciseFormAlternates.includes(ex.id))
+                    .map(ex => <option key={ex.id} value={ex.id}>{ex.name}</option>)}
+                </select>
+                {exerciseFormAlternates.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {exerciseFormAlternates.map(id => {
+                      const altEx = exerciseLibrary.find(ex => ex.id === id);
+                      return (
+                        <span key={id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '5px 6px 5px 10px', borderRadius: '999px', color: '#d1d5db' }}>
+                          {altEx?.name || `#${id}`}
+                          <button type="button" onClick={() => removeAlternateFromForm(id)} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>

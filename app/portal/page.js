@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { 
-  Dumbbell, Timer, CheckCircle, Activity, Award, User, Lock, ArrowRight, Zap, Target, Flame, X
+import {
+  Dumbbell, Timer, CheckCircle, Activity, Award, User, Lock, ArrowRight, Zap, Target, Flame, X, Repeat
 } from 'lucide-react';
 
 export default function AthleteGatePortal() {
@@ -21,6 +21,11 @@ export default function AthleteGatePortal() {
   const [workoutItems, setWorkoutItems] = useState([]);
   const [loadingWorkout, setLoadingWorkout] = useState(false);
   const [completedSets, setCompletedSets] = useState({});
+
+  // Alternate/Modified Exercise Swaps: workout_item.id -> { id, name, modality } of the chosen alternate
+  const [itemAlternatesMap, setItemAlternatesMap] = useState({});
+  const [exerciseSwaps, setExerciseSwaps] = useState({});
+  const [swapPickerOpenFor, setSwapPickerOpenFor] = useState(null);
 
   // Performance Dashboard Data States (Mock aggregates matching image structure)
   const [metrics, setMetrics] = useState({
@@ -113,12 +118,14 @@ export default function AthleteGatePortal() {
       if (!workoutHeader) {
         // Fallback display playbook if no live relational data has been pushed yet
         setActiveWorkout({ title: "Championship GPP Protocol" });
-        setWorkoutItems([
+        const fallbackItems = [
           { id: 'm1', exercise_name: 'Banded Pull Aparts', block_type: 'Activation', modality: 'Banded', tracking_unit: 'reps', sets: 3, reps: '12', rest_timer: '45s' },
           { id: 'm2', exercise_name: 'Spanish Squat Isometric Hold', block_type: 'Activation', modality: 'Banded', tracking_unit: 'seconds', sets: 3, seconds_value: '45', rest_timer: '60s' },
           { id: 'm3', exercise_name: 'Flying 10 Meter Sprint', block_type: 'Athletic Block', modality: 'Bodyweight', tracking_unit: 'seconds', sets: 4, seconds_value: '1.02', rest_timer: '3 min' },
           { id: 'm4', exercise_name: 'Barbell Back Squat', block_type: 'Strength', modality: 'Barbell', tracking_unit: 'lbs', sets: 4, load_value: '225', rest_timer: '2 min' }
-        ]);
+        ];
+        setWorkoutItems(fallbackItems);
+        loadAlternateOptions(fallbackItems);
         return;
       }
 
@@ -132,11 +139,44 @@ export default function AthleteGatePortal() {
 
       if (itemsErr) throw itemsErr;
       setWorkoutItems(itemsData || []);
+      loadAlternateOptions(itemsData || []);
 
     } catch (err) {
       console.error("Failed loading performance targets:", err.message);
     } finally {
       setLoadingWorkout(false);
+    }
+  }
+
+  // Resolve which alternate/modified exercises are available for each prescribed item,
+  // so athletes can swap movements (e.g. no barbell available -> goblet squat instead)
+  async function loadAlternateOptions(items) {
+    try {
+      const { data: libData, error: libErr } = await supabase.from('exercises').select('*');
+      if (libErr || !libData) return;
+
+      const { data: altData } = await supabase.from('exercise_alternates').select('*');
+      const altMap = {};
+      (altData || []).forEach(row => {
+        if (!altMap[row.exercise_id]) altMap[row.exercise_id] = [];
+        if (!altMap[row.alternate_exercise_id]) altMap[row.alternate_exercise_id] = [];
+        altMap[row.exercise_id].push(row.alternate_exercise_id);
+        altMap[row.alternate_exercise_id].push(row.exercise_id);
+      });
+
+      const itemMap = {};
+      items.forEach(item => {
+        const libEx = libData.find(e => e.name.toLowerCase() === (item.exercise_name || '').toLowerCase());
+        if (!libEx) return;
+        const altExercises = (altMap[libEx.id] || [])
+          .map(id => libData.find(e => e.id === id))
+          .filter(Boolean);
+        if (altExercises.length > 0) itemMap[item.id] = altExercises;
+      });
+
+      setItemAlternatesMap(itemMap);
+    } catch (err) {
+      console.error("Failed loading alternate exercise options:", err.message);
     }
   }
 
@@ -146,6 +186,20 @@ export default function AthleteGatePortal() {
       ...prev,
       [key]: !prev[key]
     }));
+  };
+
+  const chooseExerciseSwap = (itemId, altExercise) => {
+    setExerciseSwaps(prev => ({ ...prev, [itemId]: altExercise }));
+    setSwapPickerOpenFor(null);
+  };
+
+  const clearExerciseSwap = (itemId) => {
+    setExerciseSwaps(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    setSwapPickerOpenFor(null);
   };
 
   // Parse a prescription field (which may include units like "20yds") down to a plain number
@@ -175,7 +229,7 @@ export default function AthleteGatePortal() {
         logsToInsert.push({
           athlete_id: currentAthlete.id,
           workout_id: activeWorkout?.id || null,
-          exercise_name: item.exercise_name,
+          exercise_name: exerciseSwaps[item.id]?.name || item.exercise_name,
           block_type: item.block_type,
           tracking_unit: item.tracking_unit,
           metric_value: metricValue,
@@ -267,15 +321,45 @@ export default function AthleteGatePortal() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {exercises.map((item) => (
+          {exercises.map((item) => {
+            const swap = exerciseSwaps[item.id];
+            const alternates = itemAlternatesMap[item.id] || [];
+            const displayName = swap?.name || item.exercise_name;
+            const displayModality = swap?.modality || item.modality;
+            return (
             <div key={item.id} style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '10px', padding: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                <div>
-                  <h4 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0' }}>{item.exercise_name}</h4>
-                  <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', fontWeight: '600' }}>{item.modality}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <h4 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0' }}>{displayName}</h4>
+                    {swap && (
+                      <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#60a5fa', backgroundColor: 'rgba(96, 165, 250, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>SWAPPED</span>
+                    )}
+                    {alternates.length > 0 && (
+                      <button onClick={() => setSwapPickerOpenFor(swapPickerOpenFor === item.id ? null : item.id)} title="Swap exercise" style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                        <Repeat size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase', fontWeight: '600' }}>{displayModality}</span>
+
+                  {swapPickerOpenFor === item.id && (
+                    <div style={{ marginTop: '8px', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {swap && (
+                        <button onClick={() => clearExerciseSwap(item.id)} style={{ textAlign: 'left', background: 'transparent', border: 'none', color: '#f87171', fontSize: '12px', fontWeight: 'bold', padding: '6px', cursor: 'pointer' }}>
+                          ↺ Use Original: {item.exercise_name}
+                        </button>
+                      )}
+                      {alternates.filter(alt => alt.name !== swap?.name).map(alt => (
+                        <button key={alt.id} onClick={() => chooseExerciseSwap(item.id, alt)} style={{ textAlign: 'left', background: 'transparent', border: 'none', color: '#ffffff', fontSize: '12px', padding: '6px', cursor: 'pointer' }}>
+                          {alt.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {item.rest_timer && item.rest_timer !== 'None' && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', flexShrink: 0 }}>
                     <Timer size={10} /> Rest: {item.rest_timer}
                   </span>
                 )}
@@ -318,7 +402,8 @@ export default function AthleteGatePortal() {
               </div>
 
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
