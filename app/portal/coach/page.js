@@ -8,10 +8,37 @@ import { supabase } from '../../../lib/supabase.js';
 import {
   Users, Dumbbell, Calendar, MessageSquare, Settings,
   Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Trash2, CheckCircle, Timer,
-  BookOpen, Pencil, PlayCircle, X, ClipboardList, TrendingUp, FileWarning
+  BookOpen, Pencil, PlayCircle, X, ClipboardList, TrendingUp, TrendingDown, Minus, FileWarning
 } from 'lucide-react';
 
 const DEFAULT_SECTIONS = ['Activation', 'Movement', 'Athletic Block', 'Strength'];
+
+// Summarize a list of exercise_logs rows (already sorted newest-first) into a
+// personal best, trend direction, and the most recent handful of sessions
+function summarizeHistory(logs) {
+  if (!logs || logs.length === 0) return null;
+  const unit = logs[0].tracking_unit || 'reps';
+  const numericLogs = logs.filter(l => typeof l.metric_value === 'number' && !Number.isNaN(l.metric_value));
+
+  let pbLabel = null;
+  if (numericLogs.length > 0) {
+    const pbValue = unit === 'seconds'
+      ? Math.min(...numericLogs.map(l => l.metric_value))
+      : Math.max(...numericLogs.map(l => l.metric_value));
+    const suffix = { lbs: ' lbs', seconds: 's', reps: ' reps', inches: '"', distance: '' }[unit] || '';
+    pbLabel = `${pbValue}${suffix}`;
+  }
+
+  let trend = 'flat';
+  if (numericLogs.length >= 2) {
+    const newest = numericLogs[0].metric_value;
+    const oldest = numericLogs[numericLogs.length - 1].metric_value;
+    if (unit === 'seconds' ? newest < oldest : newest > oldest) trend = 'up';
+    else if (unit === 'seconds' ? newest > oldest : newest < oldest) trend = 'down';
+  }
+
+  return { unit, pbLabel, trend, recent: logs.slice(0, 5) };
+}
 
 // Group a flat list of prescription/template items into ordered sections by block_type,
 // preserving the order sections first appear in the list
@@ -67,6 +94,13 @@ export default function CoachingDashboard() {
   const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
   const [rxTargetSection, setRxTargetSection] = useState('Activation'); // which section newly-clicked exercises land in
   const [rxManualSections, setRxManualSections] = useState([]); // custom section names created but not yet holding an item
+
+  // History & Bests drawer (per exercise, per athlete)
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [historyExerciseName, setHistoryExerciseName] = useState('');
+  const [historyLogs, setHistoryLogs] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
   // Program Templates: reusable block sequences, built the same way as a workout
   const [templates, setTemplates] = useState([]);
@@ -461,6 +495,38 @@ export default function CoachingDashboard() {
     }
   };
 
+  // Open the History & Bests drawer for one exercise, scoped to the currently targeted athlete
+  const openHistoryDrawer = async (exerciseName) => {
+    setHistoryExerciseName(exerciseName);
+    setShowHistoryDrawer(true);
+    setHistoryError('');
+
+    if (!targetAthleteId) {
+      setHistoryLogs([]);
+      return;
+    }
+
+    try {
+      setHistoryLoading(true);
+      const { data, error } = await supabase
+        .from('exercise_logs')
+        .select('*')
+        .eq('athlete_id', targetAthleteId)
+        .eq('exercise_name', exerciseName)
+        .order('logged_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setHistoryLogs(data || []);
+    } catch (err) {
+      console.error("Failed loading exercise history:", err.message);
+      setHistoryError(err.message);
+      setHistoryLogs([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   // Quick-add straight from the Exercise Library tab without switching to Workouts
   const handleQuickAddToProgram = (ex) => {
     addExerciseToWorkout(ex);
@@ -756,6 +822,8 @@ export default function CoachingDashboard() {
 
   const rxSections = groupItemsBySection(currentPrescription);
   const templateSections = groupItemsBySection(templateBuilderItems);
+  const historySummary = summarizeHistory(historyLogs);
+  const historyAthleteName = athletes.find(a => a.id === targetAthleteId)?.name || 'this athlete';
 
   // Exercise Library tab: search + block/modality filters, and stats bar figures
   const libraryBlockOptions = ['All', 'Activation', 'Movement', 'Athletic Block', 'Strength'];
@@ -1048,7 +1116,12 @@ export default function CoachingDashboard() {
                           {section.items.map((item) => (
                             <div key={item.uniqueId} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 0.6fr 1fr 1fr auto', gap: '12px', alignItems: 'center', backgroundColor: '#1c232b', padding: '14px', borderRadius: '10px', border: '1px solid #1f262e' }}>
                               <div>
-                                <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
+                                  <button onClick={() => openHistoryDrawer(item.name)} title="History & Bests" style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}>
+                                    <TrendingUp size={13} />
+                                  </button>
+                                </div>
                                 <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.modality}</span>
                               </div>
 
@@ -1555,6 +1628,65 @@ export default function CoachingDashboard() {
                 <button type="submit" style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Save Template</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* HISTORY & BESTS DRAWER */}
+      {showHistoryDrawer && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }} onClick={() => setShowHistoryDrawer(false)}>
+          <div style={{ width: '100%', maxWidth: '380px', backgroundColor: '#12161a', borderLeft: '1px solid #1f262e', padding: '24px', boxSizing: 'border-box', overflowY: 'auto', boxShadow: '-10px 0 25px rgba(0,0,0,0.5)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+              <div>
+                <h3 style={{ fontSize: '17px', fontWeight: '900', margin: '0' }}>{historyExerciseName}</h3>
+                <p style={{ fontSize: '12px', color: '#9ca3af', margin: '4px 0 0 0' }}>History & Bests for {historyAthleteName}</p>
+              </div>
+              <button onClick={() => setShowHistoryDrawer(false)} style={{ backgroundColor: '#1c232b', border: 'none', color: '#ffffff', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <p style={{ fontSize: '13px', color: '#9ca3af', marginTop: '24px' }}>Loading history...</p>
+            ) : historyError ? (
+              <p style={{ fontSize: '13px', color: '#f87171', marginTop: '24px' }}>❌ {historyError}</p>
+            ) : !targetAthleteId ? (
+              <p style={{ fontSize: '13px', color: '#9ca3af', marginTop: '24px' }}>Assign a target athlete above to see their history for this movement.</p>
+            ) : !historySummary ? (
+              <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '32px', textAlign: 'center', color: '#9ca3af', marginTop: '20px' }}>
+                <TrendingUp size={24} style={{ color: '#1f262e', margin: '0 auto 10px auto' }} />
+                <p style={{ margin: '0', fontSize: '13px', fontWeight: 'bold' }}>No logged history yet.</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '11px', opacity: 0.7 }}>This fills in once {historyAthleteName} completes a workout with this exercise checked off.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px', marginTop: '20px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 4px 0', letterSpacing: '0.05em' }}>Personal Best</p>
+                    <p style={{ fontSize: '24px', fontWeight: '900', margin: '0', color: '#fbbf24' }}>{historySummary.pbLabel || '—'}</p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 'bold', color: historySummary.trend === 'up' ? '#4ade80' : historySummary.trend === 'down' ? '#f87171' : '#9ca3af' }}>
+                    {historySummary.trend === 'up' && <TrendingUp size={16} />}
+                    {historySummary.trend === 'down' && <TrendingDown size={16} />}
+                    {historySummary.trend === 'flat' && <Minus size={16} />}
+                    {historySummary.trend === 'up' ? 'Trending Up' : historySummary.trend === 'down' ? 'Trending Down' : 'Steady'}
+                  </div>
+                </div>
+
+                <p style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', margin: '0 0 10px 0' }}>Recent Sessions</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {historySummary.recent.map((log) => (
+                    <div key={log.id} style={{ backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ margin: '0', fontSize: '12px', fontWeight: 'bold' }}>{new Date(log.logged_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        <span style={{ fontSize: '10px', color: '#9ca3af' }}>{log.sets_completed || 1} set{(log.sets_completed || 1) === 1 ? '' : 's'} completed</span>
+                      </div>
+                      <span style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>{log.target_value || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

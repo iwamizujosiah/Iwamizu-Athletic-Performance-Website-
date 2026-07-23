@@ -148,6 +148,54 @@ export default function AthleteGatePortal() {
     }));
   };
 
+  // Parse a prescription field (which may include units like "20yds") down to a plain number
+  const parseMetricNumber = (val) => {
+    if (val === null || val === undefined || val === '') return null;
+    const num = parseFloat(String(val).replace(/[^0-9.\-]/g, ''));
+    return Number.isFinite(num) ? num : null;
+  };
+
+  // Log one exercise_logs row per exercise that had at least one set checked off,
+  // so the coach's History & Bests drawer has real session data to analyze
+  const handleCompleteWorkout = async () => {
+    try {
+      const logsToInsert = [];
+      workoutItems.forEach(item => {
+        const setsCompleted = Array.from({ length: item.sets }).filter((_, idx) => completedSets[`${item.id}-set-${idx}`]).length;
+        if (setsCompleted === 0) return;
+
+        let metricValue = null;
+        let targetLabel = '';
+        if (item.tracking_unit === 'reps') { metricValue = parseMetricNumber(item.reps); targetLabel = `${item.reps} reps`; }
+        else if (item.tracking_unit === 'lbs') { metricValue = parseMetricNumber(item.load_value); targetLabel = `${item.load_value} lbs`; }
+        else if (item.tracking_unit === 'seconds') { metricValue = parseMetricNumber(item.seconds_value); targetLabel = `${item.seconds_value}s`; }
+        else if (item.tracking_unit === 'distance') { metricValue = parseMetricNumber(item.distance_value); targetLabel = `${item.distance_value}`; }
+        else if (item.tracking_unit === 'inches') { metricValue = parseMetricNumber(item.reps || item.load_value); targetLabel = `${item.reps || item.load_value}"`; }
+
+        logsToInsert.push({
+          athlete_id: currentAthlete.id,
+          workout_id: activeWorkout?.id || null,
+          exercise_name: item.exercise_name,
+          block_type: item.block_type,
+          tracking_unit: item.tracking_unit,
+          metric_value: metricValue,
+          target_value: targetLabel,
+          sets_completed: setsCompleted,
+          logged_at: new Date().toISOString()
+        });
+      });
+
+      if (logsToInsert.length > 0) {
+        const { error } = await supabase.from('exercise_logs').insert(logsToInsert);
+        if (error) console.error("Failed logging session history:", error.message);
+      }
+    } catch (err) {
+      console.error("Failed logging session history:", err.message);
+    } finally {
+      setShowWorkoutModal(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('athlete_profile');
     setIsAuthenticated(false);
@@ -389,8 +437,8 @@ export default function AthleteGatePortal() {
                 return renderBlockSection(`${idx + 1}. ${style.label}`, items, style.color, style.bg);
               })}
               
-              <button 
-                onClick={() => setShowWorkoutModal(false)}
+              <button
+                onClick={handleCompleteWorkout}
                 style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#ffffff', fontWeight: 'bold', padding: '14px', borderRadius: '8px', cursor: 'pointer', marginTop: '20px' }}
               >
                 Complete Workout & Close Session
