@@ -175,7 +175,7 @@ export default function AthleteGatePortal() {
 
           <form onSubmit={handleAthleteLogin}>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>Enter Registered Name or Access Code</label>
+              <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>Use First and Last or Code Provided</label>
               <input 
                 type="text" 
                 placeholder="e.g. Katey Iwamizu or IW-KI-7909" 
