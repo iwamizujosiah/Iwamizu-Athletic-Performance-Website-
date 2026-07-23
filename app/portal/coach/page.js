@@ -899,6 +899,19 @@ export default function CoachingDashboard() {
   const historySummary = summarizeHistory(historyLogs);
   const historyAthleteName = athletes.find(a => a.id === targetAthleteId)?.name || 'this athlete';
 
+  // Look up alternate names for a deck/template item. Falls back to matching by name
+  // when exercise_id isn't available (e.g. items loaded back in from a saved template,
+  // since template_items only ever stored the exercise name, not its id).
+  const getAlternateNamesForItem = (item) => {
+    let exId = item.exercise_id;
+    if (!exId) {
+      const match = exerciseLibrary.find(e => e.name.toLowerCase() === (item.name || '').toLowerCase());
+      exId = match?.id;
+    }
+    if (!exId) return [];
+    return (exerciseAlternatesMap[exId] || []).map(id => exerciseLibrary.find(e => e.id === id)?.name).filter(Boolean);
+  };
+
   // Exercise Library tab: search + block/modality filters, and stats bar figures
   const libraryBlockOptions = ['All', 'Activation', 'Movement', 'Athletic Block', 'Strength'];
   const libraryModalityOptions = ['All', ...Array.from(new Set(exerciseLibrary.map(ex => ex.modality).filter(Boolean))).sort()];
@@ -1197,9 +1210,9 @@ export default function CoachingDashboard() {
                                   </button>
                                 </div>
                                 <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.modality}</span>
-                                {(exerciseAlternatesMap[item.exercise_id] || []).length > 0 && (
+                                {getAlternateNamesForItem(item).length > 0 && (
                                   <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#60a5fa' }}>
-                                    Alt: {(exerciseAlternatesMap[item.exercise_id] || []).map(id => exerciseLibrary.find(e => e.id === id)?.name).filter(Boolean).join(', ')}
+                                    Alt: {getAlternateNamesForItem(item).join(', ')}
                                   </p>
                                 )}
                               </div>
@@ -1501,9 +1514,9 @@ export default function CoachingDashboard() {
                               <div>
                                 <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
                                 <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.modality}</span>
-                                {(exerciseAlternatesMap[item.exercise_id] || []).length > 0 && (
+                                {getAlternateNamesForItem(item).length > 0 && (
                                   <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#60a5fa' }}>
-                                    Alt: {(exerciseAlternatesMap[item.exercise_id] || []).map(id => exerciseLibrary.find(e => e.id === id)?.name).filter(Boolean).join(', ')}
+                                    Alt: {getAlternateNamesForItem(item).join(', ')}
                                   </p>
                                 )}
                               </div>
