@@ -43,8 +43,19 @@ export default function CoachingDashboard() {
   // Current Workout Being Built
   const [targetAthleteId, setTargetAthleteId] = useState('');
   const [workoutName, setWorkoutName] = useState('Championship GPP Protocol');
-  const [currentPrescription, setCurrentPrescription] = useState([]); 
+  const [currentPrescription, setCurrentPrescription] = useState([]);
   const [saveStatus, setSaveStatus] = useState('');
+  const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
+  const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
+
+  // Program Templates: reusable block sequences, built the same way as a workout
+  const [templates, setTemplates] = useState([]);
+  const [templateItemsMap, setTemplateItemsMap] = useState({}); // template_id -> items[]
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templateBlockType, setTemplateBlockType] = useState('Activation');
+  const [templateBuilderName, setTemplateBuilderName] = useState('');
+  const [templateBuilderItems, setTemplateBuilderItems] = useState([]);
+  const [templateStatus, setTemplateStatus] = useState('');
 
   const [stats, setStats] = useState({
     attendance: "87%",
@@ -236,6 +247,53 @@ export default function CoachingDashboard() {
     return () => clearTimeout(timer);
   }, [libraryToast]);
 
+  // Load saved Program Templates + their items
+  useEffect(() => {
+    if (!isAuthorized || activeTab !== 'templates') return;
+
+    async function loadTemplates() {
+      try {
+        setTemplatesLoading(true);
+        const { data: templateRows, error: templateErr } = await supabase
+          .from('workout_templates')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (templateErr) throw templateErr;
+
+        const { data: itemRows, error: itemErr } = await supabase
+          .from('template_items')
+          .select('*')
+          .order('order_index', { ascending: true });
+
+        if (itemErr) throw itemErr;
+
+        const grouped = {};
+        (itemRows || []).forEach(item => {
+          if (!grouped[item.template_id]) grouped[item.template_id] = [];
+          grouped[item.template_id].push(item);
+        });
+
+        setTemplates(templateRows || []);
+        setTemplateItemsMap(grouped);
+      } catch (err) {
+        console.error("Failed loading program templates:", err.message);
+        setTemplateStatus(`❌ ${err.message}`);
+      } finally {
+        setTemplatesLoading(false);
+      }
+    }
+
+    loadTemplates();
+  }, [activeTab, isAuthorized]);
+
+  // Auto-dismiss template status messages
+  useEffect(() => {
+    if (!templateStatus) return;
+    const timer = setTimeout(() => setTemplateStatus(''), 4000);
+    return () => clearTimeout(timer);
+  }, [templateStatus]);
+
   // Open the Add/Edit Movement modal
   const openAddExerciseModal = () => {
     setEditingExercise(null);
@@ -358,7 +416,7 @@ export default function CoachingDashboard() {
   };
 
   const removeExerciseFromWorkout = (uniqueId) => {
-    setCurrentPrescription(currentPrescription.filter(item !== uniqueId));
+    setCurrentPrescription(currentPrescription.filter(item => item.uniqueId !== uniqueId));
   };
 
   // Commit Workout Prescription Live to Relational Supabase Tables
@@ -414,11 +472,180 @@ export default function CoachingDashboard() {
     }
   };
 
+  // Persist whatever is currently in the Rx Prescription Deck as a reusable template
+  const handleConfirmSaveAsTemplate = async (e) => {
+    e.preventDefault();
+    if (!saveAsTemplateName.trim() || currentPrescription.length === 0) return;
+
+    try {
+      const { data: templateData, error: templateErr } = await supabase
+        .from('workout_templates')
+        .insert([{ name: saveAsTemplateName.trim() }])
+        .select()
+        .single();
+
+      if (templateErr) throw templateErr;
+
+      const itemsToInsert = currentPrescription.map((item, idx) => ({
+        template_id: templateData.id,
+        exercise_name: item.name,
+        block_type: item.block_type,
+        modality: item.modality || 'Bodyweight',
+        tracking_unit: item.tracking_unit,
+        sets: parseInt(item.sets) || 3,
+        reps: item.reps ? String(item.reps) : null,
+        load_value: item.load_value ? String(item.load_value) : null,
+        seconds_value: item.seconds_value ? String(item.seconds_value) : null,
+        distance_value: item.distance_value ? String(item.distance_value) : null,
+        rest_timer: item.rest_timer || '60s',
+        order_index: idx
+      }));
+
+      const { data: insertedItems, error: itemsErr } = await supabase
+        .from('template_items')
+        .insert(itemsToInsert)
+        .select();
+
+      if (itemsErr) throw itemsErr;
+
+      setTemplates(prev => [templateData, ...prev]);
+      setTemplateItemsMap(prev => ({ ...prev, [templateData.id]: insertedItems || [] }));
+      setSaveStatus(`✅ Saved as template "${templateData.name}"`);
+      setShowSaveAsTemplateModal(false);
+      setSaveAsTemplateName('');
+    } catch (err) {
+      setSaveStatus(`❌ Error saving template: ${err.message}`);
+    }
+  };
+
+  // Template Builder: add/edit/remove rows in the draft template (mirrors the workout builder)
+  const addExerciseToTemplateBuilder = (exercise) => {
+    const targetUnit = exercise.tracking_unit || 'reps';
+    const newEntry = {
+      uniqueId: Date.now() + Math.random(),
+      exercise_id: exercise.id,
+      name: exercise.name,
+      block_type: exercise.block_type || templateBlockType,
+      modality: exercise.modality || 'Bodyweight',
+      tracking_unit: targetUnit,
+      sets: 3,
+      rest_timer: '60s',
+      reps: targetUnit === 'reps' ? 10 : '',
+      load_value: targetUnit === 'lbs' ? 135 : '',
+      seconds_value: targetUnit === 'seconds' ? 30 : '',
+      distance_value: targetUnit === 'distance' ? '20yds' : ''
+    };
+    setTemplateBuilderItems(prev => [...prev, newEntry]);
+  };
+
+  const updateTemplateBuilderField = (uniqueId, field, val) => {
+    setTemplateBuilderItems(prev => prev.map(item =>
+      item.uniqueId === uniqueId ? { ...item, [field]: val } : item
+    ));
+  };
+
+  const removeExerciseFromTemplateBuilder = (uniqueId) => {
+    setTemplateBuilderItems(prev => prev.filter(item => item.uniqueId !== uniqueId));
+  };
+
+  // Commit the draft template (no athlete attached) to Supabase
+  const handleSaveNewTemplate = async () => {
+    if (!templateBuilderName.trim() || templateBuilderItems.length === 0) {
+      setTemplateStatus('⚠️ Please name the template and add at least one exercise.');
+      return;
+    }
+
+    try {
+      setTemplateStatus('Publishing template to cloud database...');
+
+      const { data: templateData, error: templateErr } = await supabase
+        .from('workout_templates')
+        .insert([{ name: templateBuilderName.trim() }])
+        .select()
+        .single();
+
+      if (templateErr) throw templateErr;
+
+      const itemsToInsert = templateBuilderItems.map((item, idx) => ({
+        template_id: templateData.id,
+        exercise_name: item.name,
+        block_type: item.block_type,
+        modality: item.modality || 'Bodyweight',
+        tracking_unit: item.tracking_unit,
+        sets: parseInt(item.sets) || 3,
+        reps: item.reps ? String(item.reps) : null,
+        load_value: item.load_value ? String(item.load_value) : null,
+        seconds_value: item.seconds_value ? String(item.seconds_value) : null,
+        distance_value: item.distance_value ? String(item.distance_value) : null,
+        rest_timer: item.rest_timer || '60s',
+        order_index: idx
+      }));
+
+      const { data: insertedItems, error: itemsErr } = await supabase
+        .from('template_items')
+        .insert(itemsToInsert)
+        .select();
+
+      if (itemsErr) throw itemsErr;
+
+      setTemplates(prev => [templateData, ...prev]);
+      setTemplateItemsMap(prev => ({ ...prev, [templateData.id]: insertedItems || [] }));
+      setTemplateStatus(`✅ Template "${templateData.name}" saved!`);
+      setTemplateBuilderItems([]);
+      setTemplateBuilderName('');
+    } catch (err) {
+      console.error("Template write failure:", err.message);
+      setTemplateStatus(`❌ Error saving template: ${err.message}`);
+    }
+  };
+
+  const handleDeleteTemplate = async (template) => {
+    if (!window.confirm(`Delete the "${template.name}" template? This can't be undone.`)) return;
+    try {
+      const { error } = await supabase.from('workout_templates').delete().eq('id', template.id);
+      if (error) throw error;
+      setTemplates(prev => prev.filter(t => t.id !== template.id));
+      setTemplateItemsMap(prev => {
+        const next = { ...prev };
+        delete next[template.id];
+        return next;
+      });
+      setTemplateStatus(`🗑️ Removed template "${template.name}"`);
+    } catch (err) {
+      setTemplateStatus(`❌ ${err.message}`);
+    }
+  };
+
+  // Load a saved template's block sequence into the Workout Builder so a coach can
+  // pick the athlete and personalize sets/reps/rest before pushing it live
+  const handleLoadTemplateIntoBuilder = (template) => {
+    const items = templateItemsMap[template.id] || [];
+    const mapped = items.map(item => ({
+      uniqueId: Date.now() + Math.random(),
+      exercise_id: item.exercise_id || null,
+      name: item.exercise_name,
+      block_type: item.block_type,
+      modality: item.modality || 'Bodyweight',
+      tracking_unit: item.tracking_unit || 'reps',
+      sets: item.sets || 3,
+      rest_timer: item.rest_timer || '60s',
+      reps: item.reps || '',
+      load_value: item.load_value || '',
+      seconds_value: item.seconds_value || '',
+      distance_value: item.distance_value || ''
+    }));
+    setCurrentPrescription(mapped);
+    setWorkoutName(template.name);
+    setSaveStatus(`📋 Loaded "${template.name}" — pick the athlete and personalize sets/reps, then push.`);
+    setActiveTab('workouts');
+  };
+
   const filteredAthletes = athletes.filter(athlete =>
     athlete.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredExercises = exerciseLibrary.filter(ex => ex.block_type === selectedBlockType);
+  const filteredTemplateExercises = exerciseLibrary.filter(ex => ex.block_type === templateBlockType);
 
   // Exercise Library tab: search + block/modality filters, and stats bar figures
   const libraryBlockOptions = ['All', 'Activation', 'Movement', 'Athletic Block', 'Strength'];
@@ -763,8 +990,11 @@ export default function CoachingDashboard() {
 
                 {/* SUBMIT DECK PUSH BUTTON ACTION */}
                 {currentPrescription.length > 0 && (
-                  <div style={{ borderTop: '1px solid #1f262e', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ borderTop: '1px solid #1f262e', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                     <button onClick={() => setCurrentPrescription([])} style={{ background: 'transparent', border: '1px solid #1f262e', color: '#9ca3af', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Clear Deck</button>
+                    <button onClick={() => { setSaveAsTemplateName(workoutName); setShowSaveAsTemplateModal(true); }} style={{ background: 'transparent', border: '1px solid #1f262e', color: '#60a5fa', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <ClipboardList size={14} /> Save as Template
+                    </button>
                     <button onClick={handleSaveWorkout} style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)' }}>
                       <CheckCircle size={16} /> Push Routine to Athlete
                     </button>
@@ -890,17 +1120,181 @@ export default function CoachingDashboard() {
           </div>
         )}
 
-        {/* TAB 4: PROGRAM TEMPLATES (COMING SOON) */}
+        {/* TAB 4: PROGRAM TEMPLATES */}
         {activeTab === 'templates' && (
           <div style={{ boxSizing: 'border-box' }}>
             <div style={{ marginBottom: '24px' }}>
               <h2 style={{ fontSize: '26px', fontWeight: '900', margin: '0' }}>Program Templates</h2>
-              <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0 0' }}>Pre-built block sequences like "Offseason Speed" or "Hypertrophy Phase 1" you can push to any athlete in one click.</p>
+              <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0 0' }}>Build reusable block sequences like "Offseason Speed" or "Hypertrophy Phase 1", then load one into the Workout Builder and personalize it for any athlete.</p>
             </div>
-            <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '48px', textAlign: 'center', color: '#9ca3af' }}>
-              <ClipboardList size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
-              <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>Templates are on the roadmap, not built yet.</p>
-              <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Say the word and this becomes the next build.</p>
+
+            {/* TEMPLATE BUILDER: TWO COLUMN PALETTE (mirrors the Workouts tab builder) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', alignItems: 'start', marginBottom: '32px' }}>
+
+              {/* LEFT COLUMN: CURRICULUM SELECTOR */}
+              <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px' }}>
+                <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 12px 0', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em' }}>Database Curriculum</h4>
+
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', overflowX: 'auto' }}>
+                  {['Activation', 'Movement', 'Athletic Block', 'Strength'].map(b => (
+                    <button key={b} onClick={() => setTemplateBlockType(b)} style={{ flex: '1 0 auto', padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: templateBlockType === b ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                      {b}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
+                  {filteredTemplateExercises.length > 0 ? (
+                    filteredTemplateExercises.map(ex => (
+                      <button key={ex.id} onClick={() => addExerciseToTemplateBuilder(ex)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{ex.name}</span>
+                        <span style={{ fontSize: '10px', opacity: 0.5, backgroundColor: '#0d0f12', padding: '2px 6px', borderRadius: '4px' }}>{ex.modality}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', margin: '20px 0' }}>No exercises found for this block sequence selection.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: TEMPLATE DRAFT CANVAS */}
+              <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '24px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Template Name</label>
+                  <input type="text" value={templateBuilderName} onChange={(e) => setTemplateBuilderName(e.target.value)} placeholder="e.g. Offseason Speed Day 1" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }} />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0' }}>Template Block Sequence</h3>
+                  <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>{templateBuilderItems.length} Rows Slotted</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                  {templateBuilderItems.length > 0 ? (
+                    templateBuilderItems.map((item) => (
+                      <div key={item.uniqueId} style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.6fr 1fr 1fr auto', gap: '12px', alignItems: 'center', backgroundColor: '#1c232b', padding: '14px', borderRadius: '10px', border: '1px solid #1f262e' }}>
+                        <div>
+                          <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
+                          <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.block_type} | {item.modality}</span>
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Sets</label>
+                          <input type="number" value={item.sets} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlign: 'center' }} />
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#dc2626', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                            Prescription ({item.tracking_unit})
+                          </label>
+                          {item.tracking_unit === 'reps' && (
+                            <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                          )}
+                          {item.tracking_unit === 'lbs' && (
+                            <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                          )}
+                          {item.tracking_unit === 'seconds' && (
+                            <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                          )}
+                          {item.tracking_unit === 'distance' && (
+                            <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                          )}
+                          {item.tracking_unit === 'inches' && (
+                            <input type="text" placeholder="Inches" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                          )}
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '4px' }}>
+                            <Timer size={10} /> Rest
+                          </label>
+                          <select
+                            value={item.rest_timer}
+                            onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'rest_timer', e.target.value)}
+                            style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
+                          >
+                            <option value="None">No Rest</option>
+                            <option value="30s">30s (Density)</option>
+                            <option value="45s">45s</option>
+                            <option value="60s">60s (Standard)</option>
+                            <option value="90s">90s (Hypertrophy)</option>
+                            <option value="2 min">2 min (Strength)</option>
+                            <option value="3 min">3 min (Absolute Power)</option>
+                          </select>
+                        </div>
+
+                        <button onClick={() => removeExerciseFromTemplateBuilder(item.uniqueId)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+                      <ClipboardList size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
+                      <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>This template is currently blank.</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Click exercises from the curriculum on the left to add rows.</p>
+                    </div>
+                  )}
+                </div>
+
+                {templateBuilderItems.length > 0 && (
+                  <div style={{ borderTop: '1px solid #1f262e', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '14px' }}>
+                    <button onClick={() => { setTemplateBuilderItems([]); setTemplateBuilderName(''); }} style={{ background: 'transparent', border: '1px solid #1f262e', color: '#9ca3af', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Clear Deck</button>
+                    <button onClick={handleSaveNewTemplate} style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)' }}>
+                      <CheckCircle size={16} /> Save Template
+                    </button>
+                  </div>
+                )}
+
+                {templateStatus && (
+                  <p style={{ fontSize: '13px', color: '#fbbf24', textAlign: 'right', margin: '12px 0 0 0', fontWeight: '600' }}>
+                    {templateStatus}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* SAVED TEMPLATES LIST */}
+            <div>
+              <h3 style={{ fontSize: '18px', fontWeight: '900', margin: '0 0 16px 0' }}>Saved Templates</h3>
+              {templatesLoading ? (
+                <p style={{ fontSize: '13px', color: '#9ca3af' }}>Loading templates...</p>
+              ) : templates.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                  {templates.map(template => {
+                    const items = templateItemsMap[template.id] || [];
+                    const blockCounts = {};
+                    items.forEach(item => { blockCounts[item.block_type] = (blockCounts[item.block_type] || 0) + 1; });
+                    return (
+                      <div key={template.id} style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div>
+                          <h4 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0' }}>{template.name}</h4>
+                          <span style={{ fontSize: '11px', color: '#9ca3af' }}>{items.length} exercise{items.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {Object.entries(blockCounts).map(([block, count]) => (
+                            <span key={block} style={{ fontSize: '10px', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '3px 8px', borderRadius: '4px', color: '#d1d5db' }}>{block}: {count}</span>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', borderTop: '1px solid #1f262e', paddingTop: '10px', marginTop: '2px' }}>
+                          <button onClick={() => handleLoadTemplateIntoBuilder(template)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#4ade80', fontWeight: 'bold', fontSize: '12px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer' }}>
+                            <Dumbbell size={13} /> Load for Athlete
+                          </button>
+                          <button onClick={() => handleDeleteTemplate(template)} title="Delete template" style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px' }}>
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+                  <ClipboardList size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
+                  <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>No templates saved yet.</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Build one above, or push a workout in the Workouts tab and save it as a template.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -965,6 +1359,31 @@ export default function CoachingDashboard() {
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => { setShowExerciseModal(false); setEditingExercise(null); }} style={{ backgroundColor: 'transparent', border: '1px solid #1f262e', color: '#9ca3af', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
                 <button type="submit" style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>{editingExercise ? 'Save Changes' : 'Add Movement'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SAVE AS TEMPLATE MODAL */}
+      {showSaveAsTemplateModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }}>
+          <div style={{ width: '100%', maxWidth: '420px', backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '16px', padding: '28px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '900', margin: '0' }}>Save as Template</h3>
+              <button onClick={() => setShowSaveAsTemplateModal(false)} style={{ backgroundColor: '#1c232b', border: 'none', color: '#ffffff', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <X size={14} />
+              </button>
+            </div>
+            <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 16px 0' }}>This saves the {currentPrescription.length} exercise{currentPrescription.length === 1 ? '' : 's'} currently in your Rx deck as a reusable template — no athlete attached.</p>
+            <form onSubmit={handleConfirmSaveAsTemplate}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Template Name</label>
+                <input type="text" required value={saveAsTemplateName} onChange={(e) => setSaveAsTemplateName(e.target.value)} placeholder="e.g. Offseason Speed Day 1" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowSaveAsTemplateModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid #1f262e', color: '#9ca3af', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+                <button type="submit" style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Save Template</button>
               </div>
             </form>
           </div>
