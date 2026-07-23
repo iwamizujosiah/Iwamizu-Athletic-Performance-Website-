@@ -11,6 +11,24 @@ import {
   BookOpen, Pencil, PlayCircle, X, ClipboardList, TrendingUp, FileWarning
 } from 'lucide-react';
 
+const DEFAULT_SECTIONS = ['Activation', 'Movement', 'Athletic Block', 'Strength'];
+
+// Group a flat list of prescription/template items into ordered sections by block_type,
+// preserving the order sections first appear in the list
+function groupItemsBySection(items) {
+  const order = [];
+  const map = {};
+  items.forEach(item => {
+    const key = item.block_type || 'Uncategorized';
+    if (!map[key]) {
+      map[key] = [];
+      order.push(key);
+    }
+    map[key].push(item);
+  });
+  return order.map(name => ({ name, items: map[name] }));
+}
+
 export default function CoachingDashboard() {
   // Access Control / Registration Lock State
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -47,6 +65,8 @@ export default function CoachingDashboard() {
   const [saveStatus, setSaveStatus] = useState('');
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
+  const [rxTargetSection, setRxTargetSection] = useState('Activation'); // which section newly-clicked exercises land in
+  const [rxManualSections, setRxManualSections] = useState([]); // custom section names created but not yet holding an item
 
   // Program Templates: reusable block sequences, built the same way as a workout
   const [templates, setTemplates] = useState([]);
@@ -56,6 +76,8 @@ export default function CoachingDashboard() {
   const [templateBuilderName, setTemplateBuilderName] = useState('');
   const [templateBuilderItems, setTemplateBuilderItems] = useState([]);
   const [templateStatus, setTemplateStatus] = useState('');
+  const [templateTargetSection, setTemplateTargetSection] = useState('Activation');
+  const [templateManualSections, setTemplateManualSections] = useState([]);
 
   const [stats, setStats] = useState({
     attendance: "87%",
@@ -382,24 +404,61 @@ export default function CoachingDashboard() {
     }
   };
 
-  // Add Exercise to Current Workout Prescription
-  const addExerciseToWorkout = (exercise) => {
+  // Add Exercise to Current Workout Prescription. Pass sectionOverride to place it
+  // into a specific section the coach picked, instead of the exercise's native block_type.
+  const addExerciseToWorkout = (exercise, sectionOverride) => {
     const targetUnit = exercise.tracking_unit || 'reps';
     const newEntry = {
       uniqueId: Date.now() + Math.random(),
       exercise_id: exercise.id,
       name: exercise.name,
-      block_type: exercise.block_type || selectedBlockType,
+      block_type: sectionOverride || exercise.block_type || selectedBlockType,
       modality: exercise.modality || 'Bodyweight',
       tracking_unit: targetUnit,
       sets: 3,
-      rest_timer: '60s', 
+      rest_timer: '60s',
       reps: targetUnit === 'reps' ? 10 : '',
       load_value: targetUnit === 'lbs' ? 135 : '',
       seconds_value: targetUnit === 'seconds' ? 30 : '',
       distance_value: targetUnit === 'distance' ? '20yds' : ''
     };
     setCurrentPrescription([...currentPrescription, newEntry]);
+  };
+
+  // Rename every item currently tagged with oldName to newName, and rename the
+  // section itself in the picker so the deck's sections stay in sync
+  const handleRenameRxSection = (oldName, newName) => {
+    const trimmed = (newName || '').trim();
+    if (!trimmed || trimmed === oldName) return;
+    setCurrentPrescription(prev => prev.map(item => item.block_type === oldName ? { ...item, block_type: trimmed } : item));
+    setRxManualSections(prev => prev.map(s => (s === oldName ? trimmed : s)));
+    if (rxTargetSection === oldName) setRxTargetSection(trimmed);
+  };
+
+  // Handles the per-item "Section" dropdown, including the "+ New Section" option
+  const handleChangeItemSection = (uniqueId, newValue) => {
+    if (newValue === '__new__') {
+      const name = window.prompt('New section name:');
+      const trimmed = (name || '').trim();
+      if (!trimmed) return;
+      setRxManualSections(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+      updatePrescriptionField(uniqueId, 'block_type', trimmed);
+    } else {
+      updatePrescriptionField(uniqueId, 'block_type', newValue);
+    }
+  };
+
+  // Handles the "Add to Section" target dropdown above the curriculum picker
+  const handlePickRxTargetSection = (value) => {
+    if (value === '__new__') {
+      const name = window.prompt('New section name:');
+      const trimmed = (name || '').trim();
+      if (!trimmed) return;
+      setRxManualSections(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+      setRxTargetSection(trimmed);
+    } else {
+      setRxTargetSection(value);
+    }
   };
 
   // Quick-add straight from the Exercise Library tab without switching to Workouts
@@ -519,13 +578,13 @@ export default function CoachingDashboard() {
   };
 
   // Template Builder: add/edit/remove rows in the draft template (mirrors the workout builder)
-  const addExerciseToTemplateBuilder = (exercise) => {
+  const addExerciseToTemplateBuilder = (exercise, sectionOverride) => {
     const targetUnit = exercise.tracking_unit || 'reps';
     const newEntry = {
       uniqueId: Date.now() + Math.random(),
       exercise_id: exercise.id,
       name: exercise.name,
-      block_type: exercise.block_type || templateBlockType,
+      block_type: sectionOverride || exercise.block_type || templateBlockType,
       modality: exercise.modality || 'Bodyweight',
       tracking_unit: targetUnit,
       sets: 3,
@@ -536,6 +595,41 @@ export default function CoachingDashboard() {
       distance_value: targetUnit === 'distance' ? '20yds' : ''
     };
     setTemplateBuilderItems(prev => [...prev, newEntry]);
+  };
+
+  // Rename every template item currently tagged with oldName to newName
+  const handleRenameTemplateSection = (oldName, newName) => {
+    const trimmed = (newName || '').trim();
+    if (!trimmed || trimmed === oldName) return;
+    setTemplateBuilderItems(prev => prev.map(item => item.block_type === oldName ? { ...item, block_type: trimmed } : item));
+    setTemplateManualSections(prev => prev.map(s => (s === oldName ? trimmed : s)));
+    if (templateTargetSection === oldName) setTemplateTargetSection(trimmed);
+  };
+
+  // Handles the per-item "Section" dropdown in the template canvas, including "+ New Section"
+  const handleChangeTemplateItemSection = (uniqueId, newValue) => {
+    if (newValue === '__new__') {
+      const name = window.prompt('New section name:');
+      const trimmed = (name || '').trim();
+      if (!trimmed) return;
+      setTemplateManualSections(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+      updateTemplateBuilderField(uniqueId, 'block_type', trimmed);
+    } else {
+      updateTemplateBuilderField(uniqueId, 'block_type', newValue);
+    }
+  };
+
+  // Handles the "Add to Section" target dropdown above the template curriculum picker
+  const handlePickTemplateTargetSection = (value) => {
+    if (value === '__new__') {
+      const name = window.prompt('New section name:');
+      const trimmed = (name || '').trim();
+      if (!trimmed) return;
+      setTemplateManualSections(prev => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+      setTemplateTargetSection(trimmed);
+    } else {
+      setTemplateTargetSection(value);
+    }
   };
 
   const updateTemplateBuilderField = (uniqueId, field, val) => {
@@ -646,6 +740,22 @@ export default function CoachingDashboard() {
 
   const filteredExercises = exerciseLibrary.filter(ex => ex.block_type === selectedBlockType);
   const filteredTemplateExercises = exerciseLibrary.filter(ex => ex.block_type === templateBlockType);
+
+  // All section names currently available to place exercises into: the 4 defaults,
+  // any custom sections created but still empty, and any already in use by items
+  const rxSectionOptions = Array.from(new Set([
+    ...DEFAULT_SECTIONS,
+    ...rxManualSections,
+    ...currentPrescription.map(i => i.block_type)
+  ]));
+  const templateSectionOptions = Array.from(new Set([
+    ...DEFAULT_SECTIONS,
+    ...templateManualSections,
+    ...templateBuilderItems.map(i => i.block_type)
+  ]));
+
+  const rxSections = groupItemsBySection(currentPrescription);
+  const templateSections = groupItemsBySection(templateBuilderItems);
 
   // Exercise Library tab: search + block/modality filters, and stats bar figures
   const libraryBlockOptions = ['All', 'Activation', 'Movement', 'Athletic Block', 'Strength'];
@@ -882,21 +992,30 @@ export default function CoachingDashboard() {
               {/* LEFT COLUMN: THE MASTER CURRICULUM SELECTOR */}
               <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 12px 0', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em' }}>Database Curriculum</h4>
-                
+
                 {/* SYSTEM FLOW BLOCK BUTTON TABS */}
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', overflowX: 'auto' }}>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', overflowX: 'auto' }}>
                   {['Activation', 'Movement', 'Athletic Block', 'Strength'].map(b => (
-                    <button key={b} onClick={() => setSelectedBlockType(b)} style={{ flex: '1 0 auto', padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: selectedBlockType === b ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                    <button key={b} onClick={() => { setSelectedBlockType(b); setRxTargetSection(b); }} style={{ flex: '1 0 auto', padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: selectedBlockType === b ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
                       {b}
                     </button>
                   ))}
+                </div>
+
+                {/* TARGET SECTION: WHERE CLICKED EXERCISES LAND IN THE DECK */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Add To Section</label>
+                  <select value={rxTargetSection} onChange={(e) => handlePickRxTargetSection(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '8px 10px', borderRadius: '6px', color: '#ffffff', outline: 'none', fontSize: '13px', cursor: 'pointer' }}>
+                    {rxSectionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="__new__">+ New Section...</option>
+                  </select>
                 </div>
 
                 {/* SCROLLABLE LIST OF EXERCISES */}
                 <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
                   {filteredExercises.length > 0 ? (
                     filteredExercises.map(ex => (
-                      <button key={ex.id} onClick={() => addExerciseToWorkout(ex)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.15s' }}>
+                      <button key={ex.id} onClick={() => addExerciseToWorkout(ex, rxTargetSection)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'border-color 0.15s' }}>
                         <span>{ex.name}</span>
                         <span style={{ fontSize: '10px', opacity: 0.5, backgroundColor: '#0d0f12', padding: '2px 6px', borderRadius: '4px' }}>{ex.modality}</span>
                       </button>
@@ -914,76 +1033,97 @@ export default function CoachingDashboard() {
                   <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>{currentPrescription.length} Rows Slotted</span>
                 </div>
 
-                {/* RENDER DYNAMIC CARD ROWS FOR PROGRAMMED EXERCISES */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-                  {currentPrescription.length > 0 ? (
-                    currentPrescription.map((item) => (
-                      <div key={item.uniqueId} style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.6fr 1fr 1fr auto', gap: '12px', alignItems: 'center', backgroundColor: '#1c232b', padding: '14px', borderRadius: '10px', border: '1px solid #1f262e' }}>
-                        <div>
-                          <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
-                          <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.block_type} | {item.modality}</span>
-                        </div>
+                {/* RENDER DYNAMIC SECTIONS OF PROGRAMMED EXERCISES */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                  {rxSections.length > 0 ? (
+                    rxSections.map((section) => (
+                      <div key={section.name}>
+                        <input
+                          key={`rx-section-${section.name}`}
+                          defaultValue={section.name}
+                          onBlur={(e) => handleRenameRxSection(section.name, e.target.value)}
+                          style={{ fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#dc2626', background: 'transparent', border: 'none', borderBottom: '1px dashed #1f262e', padding: '0 0 6px 0', marginBottom: '10px', width: '100%', outline: 'none' }}
+                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {section.items.map((item) => (
+                            <div key={item.uniqueId} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 0.6fr 1fr 1fr auto', gap: '12px', alignItems: 'center', backgroundColor: '#1c232b', padding: '14px', borderRadius: '10px', border: '1px solid #1f262e' }}>
+                              <div>
+                                <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
+                                <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.modality}</span>
+                              </div>
 
-                        {/* COLUMN: SETS INPUT */}
-                        <div>
-                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Sets</label>
-                          <input type="number" value={item.sets} onChange={(e) => updatePrescriptionField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlign: 'center' }} />
-                        </div>
+                              {/* COLUMN: SECTION PICKER */}
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Section</label>
+                                <select value={item.block_type} onChange={(e) => handleChangeItemSection(item.uniqueId, e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
+                                  {rxSectionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                                  <option value="__new__">+ New Section...</option>
+                                </select>
+                              </div>
 
-                        {/* DYNAMIC PARAMETER TARGET DEPENDING ON THE EXERCISE'S TRACKING UNIT */}
-                        <div>
-                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#dc2626', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                            Prescription ({item.tracking_unit})
-                          </label>
-                          
-                          {item.tracking_unit === 'reps' && (
-                            <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'lbs' && (
-                            <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'seconds' && (
-                            <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'distance' && (
-                            <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'inches' && (
-                            <input type="text" placeholder="Inches" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                        </div>
+                              {/* COLUMN: SETS INPUT */}
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Sets</label>
+                                <input type="number" value={item.sets} onChange={(e) => updatePrescriptionField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlign: 'center' }} />
+                              </div>
 
-                        {/* COLUMN: REST INTERVAL SELECTION TIMER */}
-                        <div>
-                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '4px' }}>
-                            <Timer size={10} /> Rest
-                          </label>
-                          <select 
-                            value={item.rest_timer} 
-                            onChange={(e) => updatePrescriptionField(item.uniqueId, 'rest_timer', e.target.value)}
-                            style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
-                          >
-                            <option value="None">No Rest</option>
-                            <option value="30s">30s (Density)</option>
-                            <option value="45s">45s</option>
-                            <option value="60s">60s (Standard)</option>
-                            <option value="90s">90s (Hypertrophy)</option>
-                            <option value="2 min">2 min (Strength)</option>
-                            <option value="3 min">3 min (Absolute Power)</option>
-                          </select>
-                        </div>
+                              {/* DYNAMIC PARAMETER TARGET DEPENDING ON THE EXERCISE'S TRACKING UNIT */}
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#dc2626', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                                  Prescription ({item.tracking_unit})
+                                </label>
 
-                        {/* REMOVE ITEM BUTTON */}
-                        <button onClick={() => removeExerciseFromWorkout(item.uniqueId)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
-                          <Trash2 size={16} />
-                        </button>
+                                {item.tracking_unit === 'reps' && (
+                                  <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'lbs' && (
+                                  <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'seconds' && (
+                                  <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'distance' && (
+                                  <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'inches' && (
+                                  <input type="text" placeholder="Inches" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                              </div>
+
+                              {/* COLUMN: REST INTERVAL SELECTION TIMER */}
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '4px' }}>
+                                  <Timer size={10} /> Rest
+                                </label>
+                                <select
+                                  value={item.rest_timer}
+                                  onChange={(e) => updatePrescriptionField(item.uniqueId, 'rest_timer', e.target.value)}
+                                  style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
+                                >
+                                  <option value="None">No Rest</option>
+                                  <option value="30s">30s (Density)</option>
+                                  <option value="45s">45s</option>
+                                  <option value="60s">60s (Standard)</option>
+                                  <option value="90s">90s (Hypertrophy)</option>
+                                  <option value="2 min">2 min (Strength)</option>
+                                  <option value="3 min">3 min (Absolute Power)</option>
+                                </select>
+                              </div>
+
+                              {/* REMOVE ITEM BUTTON */}
+                              <button onClick={() => removeExerciseFromWorkout(item.uniqueId)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))
                   ) : (
                     <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlignment: 'center', color: '#9ca3af' }}>
                       <Dumbbell size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
                       <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>The training card is currently blank.</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Click individual items from the library catalog layout menu on the left to add rows.</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Pick a section on the left, then click exercises from the library to add rows.</p>
                     </div>
                   )}
                 </div>
@@ -1135,18 +1275,27 @@ export default function CoachingDashboard() {
               <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 12px 0', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em' }}>Database Curriculum</h4>
 
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', overflowX: 'auto' }}>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', overflowX: 'auto' }}>
                   {['Activation', 'Movement', 'Athletic Block', 'Strength'].map(b => (
-                    <button key={b} onClick={() => setTemplateBlockType(b)} style={{ flex: '1 0 auto', padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: templateBlockType === b ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                    <button key={b} onClick={() => { setTemplateBlockType(b); setTemplateTargetSection(b); }} style={{ flex: '1 0 auto', padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: templateBlockType === b ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
                       {b}
                     </button>
                   ))}
                 </div>
 
+                {/* TARGET SECTION: WHERE CLICKED EXERCISES LAND IN THE TEMPLATE */}
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Add To Section</label>
+                  <select value={templateTargetSection} onChange={(e) => handlePickTemplateTargetSection(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '8px 10px', borderRadius: '6px', color: '#ffffff', outline: 'none', fontSize: '13px', cursor: 'pointer' }}>
+                    {templateSectionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="__new__">+ New Section...</option>
+                  </select>
+                </div>
+
                 <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
                   {filteredTemplateExercises.length > 0 ? (
                     filteredTemplateExercises.map(ex => (
-                      <button key={ex.id} onClick={() => addExerciseToTemplateBuilder(ex)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <button key={ex.id} onClick={() => addExerciseToTemplateBuilder(ex, templateTargetSection)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 14px', borderRadius: '8px', color: '#ffffff', fontSize: '13px', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{ex.name}</span>
                         <span style={{ fontSize: '10px', opacity: 0.5, backgroundColor: '#0d0f12', padding: '2px 6px', borderRadius: '4px' }}>{ex.modality}</span>
                       </button>
@@ -1169,70 +1318,90 @@ export default function CoachingDashboard() {
                   <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>{templateBuilderItems.length} Rows Slotted</span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-                  {templateBuilderItems.length > 0 ? (
-                    templateBuilderItems.map((item) => (
-                      <div key={item.uniqueId} style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.6fr 1fr 1fr auto', gap: '12px', alignItems: 'center', backgroundColor: '#1c232b', padding: '14px', borderRadius: '10px', border: '1px solid #1f262e' }}>
-                        <div>
-                          <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
-                          <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.block_type} | {item.modality}</span>
-                        </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                  {templateSections.length > 0 ? (
+                    templateSections.map((section) => (
+                      <div key={section.name}>
+                        <input
+                          key={`tpl-section-${section.name}`}
+                          defaultValue={section.name}
+                          onBlur={(e) => handleRenameTemplateSection(section.name, e.target.value)}
+                          style={{ fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#dc2626', background: 'transparent', border: 'none', borderBottom: '1px dashed #1f262e', padding: '0 0 6px 0', marginBottom: '10px', width: '100%', outline: 'none' }}
+                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {section.items.map((item) => (
+                            <div key={item.uniqueId} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 0.6fr 1fr 1fr auto', gap: '12px', alignItems: 'center', backgroundColor: '#1c232b', padding: '14px', borderRadius: '10px', border: '1px solid #1f262e' }}>
+                              <div>
+                                <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
+                                <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.modality}</span>
+                              </div>
 
-                        <div>
-                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Sets</label>
-                          <input type="number" value={item.sets} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlign: 'center' }} />
-                        </div>
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Section</label>
+                                <select value={item.block_type} onChange={(e) => handleChangeTemplateItemSection(item.uniqueId, e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
+                                  {templateSectionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                                  <option value="__new__">+ New Section...</option>
+                                </select>
+                              </div>
 
-                        <div>
-                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#dc2626', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                            Prescription ({item.tracking_unit})
-                          </label>
-                          {item.tracking_unit === 'reps' && (
-                            <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'lbs' && (
-                            <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'seconds' && (
-                            <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'distance' && (
-                            <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                          {item.tracking_unit === 'inches' && (
-                            <input type="text" placeholder="Inches" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
-                          )}
-                        </div>
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '4px' }}>Sets</label>
+                                <input type="number" value={item.sets} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'sets', parseInt(e.target.value) || 0)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', textAlign: 'center' }} />
+                              </div>
 
-                        <div>
-                          <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '4px' }}>
-                            <Timer size={10} /> Rest
-                          </label>
-                          <select
-                            value={item.rest_timer}
-                            onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'rest_timer', e.target.value)}
-                            style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
-                          >
-                            <option value="None">No Rest</option>
-                            <option value="30s">30s (Density)</option>
-                            <option value="45s">45s</option>
-                            <option value="60s">60s (Standard)</option>
-                            <option value="90s">90s (Hypertrophy)</option>
-                            <option value="2 min">2 min (Strength)</option>
-                            <option value="3 min">3 min (Absolute Power)</option>
-                          </select>
-                        </div>
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#dc2626', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                                  Prescription ({item.tracking_unit})
+                                </label>
+                                {item.tracking_unit === 'reps' && (
+                                  <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'lbs' && (
+                                  <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'seconds' && (
+                                  <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'distance' && (
+                                  <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                                {item.tracking_unit === 'inches' && (
+                                  <input type="text" placeholder="Inches" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                )}
+                              </div>
 
-                        <button onClick={() => removeExerciseFromTemplateBuilder(item.uniqueId)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
-                          <Trash2 size={16} />
-                        </button>
+                              <div>
+                                <label style={{ fontSize: '9px', textTransform: 'uppercase', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '3px', marginBottom: '4px' }}>
+                                  <Timer size={10} /> Rest
+                                </label>
+                                <select
+                                  value={item.rest_timer}
+                                  onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'rest_timer', e.target.value)}
+                                  style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer' }}
+                                >
+                                  <option value="None">No Rest</option>
+                                  <option value="30s">30s (Density)</option>
+                                  <option value="45s">45s</option>
+                                  <option value="60s">60s (Standard)</option>
+                                  <option value="90s">90s (Hypertrophy)</option>
+                                  <option value="2 min">2 min (Strength)</option>
+                                  <option value="3 min">3 min (Absolute Power)</option>
+                                </select>
+                              </div>
+
+                              <button onClick={() => removeExerciseFromTemplateBuilder(item.uniqueId)} style={{ backgroundColor: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center' }}>
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))
                   ) : (
                     <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
                       <ClipboardList size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
                       <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>This template is currently blank.</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Click exercises from the curriculum on the left to add rows.</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Pick a section on the left, then click exercises from the curriculum to add rows.</p>
                     </div>
                   )}
                 </div>

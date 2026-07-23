@@ -157,10 +157,25 @@ export default function AthleteGatePortal() {
     setShowWorkoutModal(false);
   };
 
-  const activationExercises = workoutItems.filter(item => item.block_type === 'Activation');
-  const movementExercises = workoutItems.filter(item => item.block_type === 'Movement');
-  const athleticExercises = workoutItems.filter(item => item.block_type === 'Athletic Block');
-  const strengthExercises = workoutItems.filter(item => item.block_type === 'Strength');
+  // Group workout items into whatever sections the coach built the workout with,
+  // in the order those sections first appear (order_index from the fetch query)
+  const KNOWN_SECTION_STYLES = {
+    'Activation': { label: 'Activation', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.05)' },
+    'Movement': { label: 'Movement Prep & Mechanics', color: '#10b981', bg: 'rgba(16, 185, 129, 0.05)' },
+    'Athletic Block': { label: 'Explosive Athletic Block', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.05)' },
+    'Strength': { label: 'Structural Strength & Ballistics', color: '#dc2626', bg: 'rgba(220, 38, 38, 0.05)' }
+  };
+  const FALLBACK_SECTION_COLORS = ['#a855f7', '#14b8a6', '#eab308', '#ec4899', '#6366f1'];
+
+  const workoutSections = [];
+  const workoutSectionSeen = new Set();
+  workoutItems.forEach(item => {
+    const key = item.block_type || 'Uncategorized';
+    if (!workoutSectionSeen.has(key)) {
+      workoutSectionSeen.add(key);
+      workoutSections.push(key);
+    }
+  });
 
   // Gated Access Screening Window
   if (!isAuthenticated) {
@@ -364,10 +379,15 @@ export default function AthleteGatePortal() {
             </div>
           ) : workoutItems.length > 0 ? (
             <div style={{ maxWidth: '600px', margin: '0 auto', pb: '40px' }}>
-              {renderBlockSection('1. Activation Layer', activationExercises, '#3b82f6', 'rgba(59, 130, 246, 0.05)')}
-              {renderBlockSection('2. Movement Prep & Mechanics', movementExercises, '#10b981', 'rgba(16, 185, 129, 0.05)')}
-              {renderBlockSection('3. Explosive Athletic Block', athleticExercises, '#f59e0b', 'rgba(245, 158, 11, 0.05)')}
-              {renderBlockSection('4. Structural Strength & Ballistics', strengthExercises, '#dc2626', 'rgba(220, 38, 38, 0.05)')}
+              {workoutSections.map((sectionName, idx) => {
+                const style = KNOWN_SECTION_STYLES[sectionName] || {
+                  label: sectionName,
+                  color: FALLBACK_SECTION_COLORS[idx % FALLBACK_SECTION_COLORS.length],
+                  bg: 'rgba(255, 255, 255, 0.04)'
+                };
+                const items = workoutItems.filter(item => item.block_type === sectionName);
+                return renderBlockSection(`${idx + 1}. ${style.label}`, items, style.color, style.bg);
+              })}
               
               <button 
                 onClick={() => setShowWorkoutModal(false)}
