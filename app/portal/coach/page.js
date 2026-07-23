@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase.js';
-import { 
-  Users, Dumbbell, Calendar, MessageSquare, Settings, 
-  Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Trash2, CheckCircle, Timer
+import {
+  Users, Dumbbell, Calendar, MessageSquare, Settings,
+  Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Trash2, CheckCircle, Timer,
+  BookOpen, Pencil, PlayCircle, X, ClipboardList, TrendingUp, FileWarning
 } from 'lucide-react';
 
 export default function CoachingDashboard() {
@@ -27,7 +28,18 @@ export default function CoachingDashboard() {
   // Master Exercise Library States
   const [exerciseLibrary, setExerciseLibrary] = useState([]);
   const [selectedBlockType, setSelectedBlockType] = useState('Activation'); // Activation, Movement, Strength, Athletic Block
-  
+
+  // Exercise Library Tab: Search, Filters, CRUD Modal & Stats
+  const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+  const [libraryBlockFilter, setLibraryBlockFilter] = useState('All');
+  const [libraryModalityFilter, setLibraryModalityFilter] = useState('All');
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [editingExercise, setEditingExercise] = useState(null); // null = add mode
+  const [exerciseForm, setExerciseForm] = useState({ name: '', block_type: 'Activation', modality: 'Bodyweight', tracking_unit: 'reps', video_url: '' });
+  const [libraryToast, setLibraryToast] = useState('');
+  const [topProgrammed, setTopProgrammed] = useState([]);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState(null);
+
   // Current Workout Being Built
   const [targetAthleteId, setTargetAthleteId] = useState('');
   const [workoutName, setWorkoutName] = useState('Championship GPP Protocol');
@@ -192,6 +204,126 @@ export default function CoachingDashboard() {
     loadAthleteTrends();
   }, [selectedAthlete, isAuthorized]);
 
+  // Load "Most Programmed" ranking for the Exercise Library stats bar
+  useEffect(() => {
+    if (!isAuthorized || activeTab !== 'library') return;
+
+    async function loadTopProgrammed() {
+      const { data, error } = await supabase.from('workout_items').select('exercise_name');
+      if (!error && data && data.length > 0) {
+        const counts = {};
+        data.forEach(row => {
+          if (!row.exercise_name) return;
+          counts[row.exercise_name] = (counts[row.exercise_name] || 0) + 1;
+        });
+        const ranked = Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name, count]) => ({ name, count }));
+        setTopProgrammed(ranked);
+      } else {
+        setTopProgrammed([]);
+      }
+    }
+
+    loadTopProgrammed();
+  }, [activeTab, isAuthorized]);
+
+  // Auto-dismiss library toast messages
+  useEffect(() => {
+    if (!libraryToast) return;
+    const timer = setTimeout(() => setLibraryToast(''), 3500);
+    return () => clearTimeout(timer);
+  }, [libraryToast]);
+
+  // Open the Add/Edit Movement modal
+  const openAddExerciseModal = () => {
+    setEditingExercise(null);
+    setExerciseForm({ name: '', block_type: 'Activation', modality: 'Bodyweight', tracking_unit: 'reps', video_url: '' });
+    setShowExerciseModal(true);
+  };
+
+  const openEditExerciseModal = (ex) => {
+    setEditingExercise(ex);
+    setExerciseForm({
+      name: ex.name || '',
+      block_type: ex.block_type || 'Activation',
+      modality: ex.modality || 'Bodyweight',
+      tracking_unit: ex.tracking_unit || 'reps',
+      video_url: ex.video_url || ''
+    });
+    setShowExerciseModal(true);
+  };
+
+  // Create or update a movement in the Supabase exercises table
+  const handleSaveExercise = async (e) => {
+    e.preventDefault();
+    if (!exerciseForm.name.trim()) return;
+
+    const payload = {
+      name: exerciseForm.name.trim(),
+      block_type: exerciseForm.block_type,
+      modality: exerciseForm.modality,
+      tracking_unit: exerciseForm.tracking_unit,
+      video_url: exerciseForm.video_url.trim() || null
+    };
+
+    try {
+      if (editingExercise) {
+        const { data, error } = await supabase
+          .from('exercises')
+          .update(payload)
+          .eq('id', editingExercise.id)
+          .select()
+          .single();
+        if (error) throw error;
+        setExerciseLibrary(prev => prev.map(ex => (ex.id === editingExercise.id ? data : ex)));
+        setLibraryToast(`✅ Updated "${data.name}"`);
+      } else {
+        const { data, error } = await supabase
+          .from('exercises')
+          .insert([payload])
+          .select()
+          .single();
+        if (error) throw error;
+        setExerciseLibrary(prev => [...prev, data]);
+        setLibraryToast(`✅ Added "${data.name}" to the library`);
+      }
+      setShowExerciseModal(false);
+      setEditingExercise(null);
+    } catch (err) {
+      setLibraryToast(`❌ ${err.message}`);
+    }
+  };
+
+  const handleDeleteExercise = async (ex) => {
+    if (!window.confirm(`Delete "${ex.name}" from the library? This can't be undone.`)) return;
+    try {
+      const { error } = await supabase.from('exercises').delete().eq('id', ex.id);
+      if (error) throw error;
+      setExerciseLibrary(prev => prev.filter(item => item.id !== ex.id));
+      setLibraryToast(`🗑️ Removed "${ex.name}"`);
+    } catch (err) {
+      setLibraryToast(`❌ ${err.message}`);
+    }
+  };
+
+  // Convert common YouTube link formats into an embeddable URL
+  const toEmbedUrl = (url) => {
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+        return `https://www.youtube.com/embed/${u.searchParams.get('v')}`;
+      }
+      if (u.hostname.includes('youtu.be')) {
+        return `https://www.youtube.com/embed${u.pathname}`;
+      }
+      return url;
+    } catch {
+      return url;
+    }
+  };
+
   // Add Exercise to Current Workout Prescription
   const addExerciseToWorkout = (exercise) => {
     const targetUnit = exercise.tracking_unit || 'reps';
@@ -210,6 +342,13 @@ export default function CoachingDashboard() {
       distance_value: targetUnit === 'distance' ? '20yds' : ''
     };
     setCurrentPrescription([...currentPrescription, newEntry]);
+  };
+
+  // Quick-add straight from the Exercise Library tab without switching to Workouts
+  const handleQuickAddToProgram = (ex) => {
+    addExerciseToWorkout(ex);
+    const athleteName = athletes.find(a => a.id === targetAthleteId)?.name || 'the';
+    setLibraryToast(`➕ Added "${ex.name}" to ${athleteName}'s draft — finish it in the Workouts tab.`);
   };
 
   const updatePrescriptionField = (uniqueId, field, val) => {
@@ -281,6 +420,19 @@ export default function CoachingDashboard() {
 
   const filteredExercises = exerciseLibrary.filter(ex => ex.block_type === selectedBlockType);
 
+  // Exercise Library tab: search + block/modality filters, and stats bar figures
+  const libraryBlockOptions = ['All', 'Activation', 'Movement', 'Athletic Block', 'Strength'];
+  const libraryModalityOptions = ['All', ...Array.from(new Set(exerciseLibrary.map(ex => ex.modality).filter(Boolean))).sort()];
+
+  const filteredLibraryExercises = exerciseLibrary.filter(ex => {
+    const matchesSearch = ex.name.toLowerCase().includes(librarySearchQuery.toLowerCase());
+    const matchesBlock = libraryBlockFilter === 'All' || ex.block_type === libraryBlockFilter;
+    const matchesModality = libraryModalityFilter === 'All' || ex.modality === libraryModalityFilter;
+    return matchesSearch && matchesBlock && matchesModality;
+  });
+
+  const missingMediaCount = exerciseLibrary.filter(ex => !ex.video_url).length;
+
   if (!isAuthorized) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#0d0f12', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', color: '#ffffff', padding: '24px' }}>
@@ -340,6 +492,12 @@ export default function CoachingDashboard() {
             </button>
             <button onClick={() => setActiveTab('workouts')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'workouts' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
               <Dumbbell size={18} /> Workouts
+            </button>
+            <button onClick={() => setActiveTab('library')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'library' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
+              <BookOpen size={18} /> Exercise Library
+            </button>
+            <button onClick={() => setActiveTab('templates')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'templates' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
+              <ClipboardList size={18} /> Program Templates
             </button>
             <button style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><Calendar size={18} /> Calendar</button>
             <button style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><MessageSquare size={18} /> Messages</button>
@@ -623,7 +781,218 @@ export default function CoachingDashboard() {
             </div>
           </div>
         )}
+
+        {/* TAB 3: EXERCISE LIBRARY */}
+        {activeTab === 'library' && (
+          <div style={{ boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', gap: '16px', flexWrap: 'wrap' }}>
+              <div>
+                <h2 style={{ fontSize: '26px', fontWeight: '900', margin: '0' }}>Exercise Library</h2>
+                <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0 0' }}>View, edit, search, and add new movements to your database curriculum.</p>
+              </div>
+              <button onClick={openAddExerciseModal} style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', padding: '12px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)' }}>
+                <Plus size={16} /> New Movement
+              </button>
+            </div>
+
+            {/* LIBRARY STATS BAR */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: '0', letterSpacing: '0.05em' }}>Total Movements</p>
+                <h3 style={{ fontSize: '28px', fontWeight: '900', margin: '4px 0 0 0' }}>{exerciseLibrary.length} Loaded</h3>
+              </div>
+              <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: '0 0 6px 0', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}><TrendingUp size={12} /> Most Programmed</p>
+                {topProgrammed.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {topProgrammed.map((t, idx) => (
+                      <span key={t.name} style={{ fontSize: '13px', fontWeight: 'bold', color: idx === 0 ? '#fbbf24' : '#ffffff' }}>{idx + 1}. {t.name} <span style={{ color: '#9ca3af', fontWeight: 'normal' }}>({t.count})</span></span>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0' }}>No programmed history yet.</p>
+                )}
+              </div>
+              <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', margin: '0', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}><FileWarning size={12} /> Missing Media</p>
+                <h3 style={{ fontSize: '28px', fontWeight: '900', margin: '4px 0 0 0', color: missingMediaCount > 0 ? '#f87171' : '#4ade80' }}>{missingMediaCount} Clips Needed</h3>
+              </div>
+            </div>
+
+            {/* SEARCH & FILTER BAR */}
+            <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px', marginBottom: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: '1 1 220px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '10px', color: '#9ca3af' }} />
+                <input type="text" placeholder="Search movements (e.g. split squat)..." value={librarySearchQuery} onChange={(e) => setLibrarySearchQuery(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '8px 12px 8px 36px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', flexWrap: 'wrap' }}>
+                {libraryBlockOptions.map(b => (
+                  <button key={b} onClick={() => setLibraryBlockFilter(b)} style={{ padding: '7px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: libraryBlockFilter === b ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                    {b}
+                  </button>
+                ))}
+              </div>
+
+              <select value={libraryModalityFilter} onChange={(e) => setLibraryModalityFilter(e.target.value)} style={{ backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '9px 10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '13px', cursor: 'pointer' }}>
+                {libraryModalityOptions.map(m => <option key={m} value={m}>{m === 'All' ? 'All Modalities' : m}</option>)}
+              </select>
+            </div>
+
+            {/* EXERCISE CARD GRID */}
+            {filteredLibraryExercises.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+                {filteredLibraryExercises.map(ex => (
+                  <div key={ex.id} style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                      <div>
+                        <h4 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0' }}>{ex.name}</h4>
+                        <span style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#dc2626' }}>{ex.block_type}</span>
+                      </div>
+                      {ex.video_url ? (
+                        <button onClick={() => setPreviewVideoUrl(ex.video_url)} title="Preview coaching clip" style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: '2px', flexShrink: 0 }}>
+                          <PlayCircle size={20} />
+                        </button>
+                      ) : (
+                        <span title="No coaching clip attached" style={{ color: '#374151', flexShrink: 0 }}>
+                          <PlayCircle size={20} />
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '10px', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '3px 8px', borderRadius: '4px', color: '#d1d5db' }}>{ex.modality || 'Bodyweight'}</span>
+                      <span style={{ fontSize: '10px', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '3px 8px', borderRadius: '4px', color: '#d1d5db' }}>Tracks: {ex.tracking_unit || 'reps'}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', borderTop: '1px solid #1f262e', paddingTop: '10px', marginTop: '2px' }}>
+                      <button onClick={() => handleQuickAddToProgram(ex)} style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#4ade80', fontWeight: 'bold', fontSize: '12px', padding: '7px 10px', borderRadius: '6px', cursor: 'pointer' }}>
+                        <Plus size={13} /> Add to Program
+                      </button>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={() => openEditExerciseModal(ex)} title="Edit movement" style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', padding: '6px' }}>
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => handleDeleteExercise(ex)} title="Delete movement" style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px' }}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+                <BookOpen size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
+                <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>No movements match this search/filter.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 4: PROGRAM TEMPLATES (COMING SOON) */}
+        {activeTab === 'templates' && (
+          <div style={{ boxSizing: 'border-box' }}>
+            <div style={{ marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '26px', fontWeight: '900', margin: '0' }}>Program Templates</h2>
+              <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0 0' }}>Pre-built block sequences like "Offseason Speed" or "Hypertrophy Phase 1" you can push to any athlete in one click.</p>
+            </div>
+            <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '48px', textAlign: 'center', color: '#9ca3af' }}>
+              <ClipboardList size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
+              <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>Templates are on the roadmap, not built yet.</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Say the word and this becomes the next build.</p>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* LIBRARY TOAST NOTIFICATION */}
+      {libraryToast && (
+        <div style={{ position: 'fixed', bottom: '24px', right: '24px', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#ffffff', padding: '14px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: '600', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', zIndex: 200, maxWidth: '360px' }}>
+          {libraryToast}
+        </div>
+      )}
+
+      {/* ADD / EDIT MOVEMENT MODAL */}
+      {showExerciseModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }}>
+          <div style={{ width: '100%', maxWidth: '440px', backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '16px', padding: '28px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '900', margin: '0' }}>{editingExercise ? 'Edit Movement' : 'New Movement'}</h3>
+              <button onClick={() => { setShowExerciseModal(false); setEditingExercise(null); }} style={{ backgroundColor: '#1c232b', border: 'none', color: '#ffffff', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveExercise}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Exercise Name</label>
+                <input type="text" required value={exerciseForm.name} onChange={(e) => setExerciseForm({ ...exerciseForm, name: e.target.value })} placeholder="e.g. Bulgarian Split Squat" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Block</label>
+                  <select value={exerciseForm.block_type} onChange={(e) => setExerciseForm({ ...exerciseForm, block_type: e.target.value })} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px', fontSize: '14px', color: '#ffffff', outline: 'none', cursor: 'pointer' }}>
+                    <option value="Activation">Activation</option>
+                    <option value="Movement">Movement</option>
+                    <option value="Athletic Block">Athletic Block</option>
+                    <option value="Strength">Strength</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Tracking Unit</label>
+                  <select value={exerciseForm.tracking_unit} onChange={(e) => setExerciseForm({ ...exerciseForm, tracking_unit: e.target.value })} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px', fontSize: '14px', color: '#ffffff', outline: 'none', cursor: 'pointer' }}>
+                    <option value="reps">Reps</option>
+                    <option value="lbs">Lbs</option>
+                    <option value="seconds">Seconds</option>
+                    <option value="distance">Distance</option>
+                    <option value="inches">Inches</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Modality</label>
+                <input type="text" value={exerciseForm.modality} onChange={(e) => setExerciseForm({ ...exerciseForm, modality: e.target.value })} placeholder="e.g. Barbell, Dumbbell, Bands, Bodyweight" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Coaching Video Link (optional)</label>
+                <input type="url" value={exerciseForm.video_url} onChange={(e) => setExerciseForm({ ...exerciseForm, video_url: e.target.value })} placeholder="https://youtube.com/watch?v=..." style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => { setShowExerciseModal(false); setEditingExercise(null); }} style={{ backgroundColor: 'transparent', border: '1px solid #1f262e', color: '#9ca3af', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+                <button type="submit" style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>{editingExercise ? 'Save Changes' : 'Add Movement'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* VIDEO PREVIEW MODAL */}
+      {previewVideoUrl && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }} onClick={() => setPreviewVideoUrl(null)}>
+          <div style={{ width: '100%', maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+              <button onClick={() => setPreviewVideoUrl(null)} style={{ backgroundColor: '#1c232b', border: 'none', color: '#ffffff', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', backgroundColor: '#000', borderRadius: '12px', overflow: 'hidden', border: '1px solid #1f262e' }}>
+              <iframe
+                src={toEmbedUrl(previewVideoUrl)}
+                title="Coaching clip preview"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
+            <a href={previewVideoUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '10px', fontSize: '12px', color: '#60a5fa' }}>Open original link ↗</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
