@@ -1197,6 +1197,11 @@ export default function CoachingDashboard() {
                                   </button>
                                 </div>
                                 <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.modality}</span>
+                                {(exerciseAlternatesMap[item.exercise_id] || []).length > 0 && (
+                                  <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#60a5fa' }}>
+                                    Alt: {(exerciseAlternatesMap[item.exercise_id] || []).map(id => exerciseLibrary.find(e => e.id === id)?.name).filter(Boolean).join(', ')}
+                                  </p>
+                                )}
                               </div>
 
                               {/* COLUMN: SECTION PICKER */}
@@ -1496,6 +1501,11 @@ export default function CoachingDashboard() {
                               <div>
                                 <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{item.name}</p>
                                 <span style={{ fontSize: '10px', color: '#9ca3af', textTransform: 'uppercase' }}>{item.modality}</span>
+                                {(exerciseAlternatesMap[item.exercise_id] || []).length > 0 && (
+                                  <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#60a5fa' }}>
+                                    Alt: {(exerciseAlternatesMap[item.exercise_id] || []).map(id => exerciseLibrary.find(e => e.id === id)?.name).filter(Boolean).join(', ')}
+                                  </p>
+                                )}
                               </div>
 
                               <div>
