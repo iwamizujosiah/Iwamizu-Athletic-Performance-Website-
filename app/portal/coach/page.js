@@ -451,7 +451,7 @@ export default function CoachingDashboard() {
       tracking_unit: targetUnit,
       sets: 3,
       rest_timer: '60s',
-      reps: targetUnit === 'reps' ? 10 : '',
+      reps: targetUnit === 'inches' ? '' : 10,
       load_value: targetUnit === 'lbs' ? 135 : '',
       seconds_value: targetUnit === 'seconds' ? 30 : '',
       distance_value: targetUnit === 'distance' ? '20yds' : ''
@@ -655,7 +655,7 @@ export default function CoachingDashboard() {
       tracking_unit: targetUnit,
       sets: 3,
       rest_timer: '60s',
-      reps: targetUnit === 'reps' ? 10 : '',
+      reps: targetUnit === 'inches' ? '' : 10,
       load_value: targetUnit === 'lbs' ? 135 : '',
       seconds_value: targetUnit === 'seconds' ? 30 : '',
       distance_value: targetUnit === 'distance' ? '20yds' : ''
@@ -1150,13 +1150,22 @@ export default function CoachingDashboard() {
                                   <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                                 )}
                                 {item.tracking_unit === 'lbs' && (
-                                  <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '40%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                    <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '60%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  </div>
                                 )}
                                 {item.tracking_unit === 'seconds' && (
-                                  <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '40%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                    <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '60%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  </div>
                                 )}
                                 {item.tracking_unit === 'distance' && (
-                                  <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '40%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                    <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updatePrescriptionField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '60%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  </div>
                                 )}
                                 {item.tracking_unit === 'inches' && (
                                   <input type="text" placeholder="Inches" value={item.reps} onChange={(e) => updatePrescriptionField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
@@ -1430,13 +1439,22 @@ export default function CoachingDashboard() {
                                   <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                                 )}
                                 {item.tracking_unit === 'lbs' && (
-                                  <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '40%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                    <input type="text" placeholder="Weight" value={item.load_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'load_value', e.target.value)} style={{ width: '60%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  </div>
                                 )}
                                 {item.tracking_unit === 'seconds' && (
-                                  <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '40%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                    <input type="text" placeholder="Time (s)" value={item.seconds_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'seconds_value', e.target.value)} style={{ width: '60%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  </div>
                                 )}
                                 {item.tracking_unit === 'distance' && (
-                                  <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <input type="number" placeholder="Reps" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '40%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                    <input type="text" placeholder="Distance" value={item.distance_value} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'distance_value', e.target.value)} style={{ width: '60%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+                                  </div>
                                 )}
                                 {item.tracking_unit === 'inches' && (
                                   <input type="text" placeholder="Inches" value={item.reps} onChange={(e) => updateTemplateBuilderField(item.uniqueId, 'reps', e.target.value)} style={{ width: '100%', backgroundColor: '#0d0f12', border: '1px solid #1f262e', padding: '6px', borderRadius: '4px', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />

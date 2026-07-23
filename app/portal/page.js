@@ -167,9 +167,9 @@ export default function AthleteGatePortal() {
         let metricValue = null;
         let targetLabel = '';
         if (item.tracking_unit === 'reps') { metricValue = parseMetricNumber(item.reps); targetLabel = `${item.reps} reps`; }
-        else if (item.tracking_unit === 'lbs') { metricValue = parseMetricNumber(item.load_value); targetLabel = `${item.load_value} lbs`; }
-        else if (item.tracking_unit === 'seconds') { metricValue = parseMetricNumber(item.seconds_value); targetLabel = `${item.seconds_value}s`; }
-        else if (item.tracking_unit === 'distance') { metricValue = parseMetricNumber(item.distance_value); targetLabel = `${item.distance_value}`; }
+        else if (item.tracking_unit === 'lbs') { metricValue = parseMetricNumber(item.load_value); targetLabel = `${item.reps ? `${item.reps} x ` : ''}${item.load_value} lbs`; }
+        else if (item.tracking_unit === 'seconds') { metricValue = parseMetricNumber(item.seconds_value); targetLabel = `${item.reps ? `${item.reps} x ` : ''}${item.seconds_value}s`; }
+        else if (item.tracking_unit === 'distance') { metricValue = parseMetricNumber(item.distance_value); targetLabel = `${item.reps ? `${item.reps} x ` : ''}${item.distance_value}`; }
         else if (item.tracking_unit === 'inches') { metricValue = parseMetricNumber(item.reps || item.load_value); targetLabel = `${item.reps || item.load_value}"`; }
 
         logsToInsert.push({
@@ -291,9 +291,9 @@ export default function AthleteGatePortal() {
                   <span style={{ fontSize: '9px', textTransform: 'uppercase', color: '#dc2626', fontWeight: 'bold', display: 'block' }}>Prescription</span>
                   <span style={{ fontSize: '15px', fontWeight: '900' }}>
                     {item.tracking_unit === 'reps' && `${item.reps} Reps`}
-                    {item.tracking_unit === 'lbs' && `${item.load_value} lbs`}
-                    {item.tracking_unit === 'seconds' && `${item.seconds_value}s`}
-                    {item.tracking_unit === 'distance' && `${item.distance_value}`}
+                    {item.tracking_unit === 'lbs' && `${item.reps ? `${item.reps} x ` : ''}${item.load_value} lbs`}
+                    {item.tracking_unit === 'seconds' && `${item.reps ? `${item.reps} x ` : ''}${item.seconds_value}s`}
+                    {item.tracking_unit === 'distance' && `${item.reps ? `${item.reps} x ` : ''}${item.distance_value}`}
                     {item.tracking_unit === 'inches' && `${item.reps || item.load_value || 'Max'}"`}
                   </span>
                 </div>
