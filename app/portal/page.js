@@ -178,7 +178,7 @@ export default function AthleteGatePortal() {
               <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '8px', letterSpacing: '0.05em' }}>Use First and Last or Code Provided</label>
               <input 
                 type="text" 
-                placeholder="e.g. Katey Iwamizu or IW-KI-7909" 
+                placeholder="First Last or IW-XX-0000"
                 value={athleteIdentifier} 
                 onChange={(e) => setAthleteIdentifier(e.target.value)} 
                 style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '10px', padding: '14px', fontSize: '15px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }}
