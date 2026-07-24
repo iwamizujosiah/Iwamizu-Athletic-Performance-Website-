@@ -23,6 +23,11 @@ export default function AthleteGatePortal() {
   const [workoutItems, setWorkoutItems] = useState([]);
   const [loadingWorkout, setLoadingWorkout] = useState(false);
   const [completedSets, setCompletedSets] = useState({});
+  const [restTimers, setRestTimers] = useState({}); // workout_item.id -> seconds remaining
+
+  // Guided Workout Flow: cover screen -> step through one section (block) at a time
+  const [workoutStage, setWorkoutStage] = useState('cover'); // 'cover' | 'active'
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
 
   // Alternate/Modified Exercise Swaps: workout_item.id -> { id, name, modality } of the chosen alternate
   const [itemAlternatesMap, setItemAlternatesMap] = useState({});
@@ -136,6 +141,9 @@ export default function AthleteGatePortal() {
     setActiveWorkout(workoutHeader);
     setCompletedSets({});
     setExerciseSwaps({});
+    setRestTimers({});
+    setWorkoutStage('cover');
+    setCurrentSectionIndex(0);
 
     const { data: itemsData, error: itemsErr } = await supabase
       .from('workout_items')
@@ -181,6 +189,11 @@ export default function AthleteGatePortal() {
       if (!workoutHeader) {
         // Fallback display playbook if no live relational data has been pushed yet
         setActiveWorkout({ title: "Championship GPP Protocol" });
+        setCompletedSets({});
+        setExerciseSwaps({});
+        setRestTimers({});
+        setWorkoutStage('cover');
+        setCurrentSectionIndex(0);
         const fallbackItems = [
           { id: 'm1', exercise_name: 'Banded Pull Aparts', block_type: 'Activation', modality: 'Banded', tracking_unit: 'reps', sets: 3, reps: '12', rest_timer: '45s' },
           { id: 'm2', exercise_name: 'Spanish Squat Isometric Hold', block_type: 'Activation', modality: 'Banded', tracking_unit: 'seconds', sets: 3, seconds_value: '45', rest_timer: '60s' },
@@ -273,13 +286,59 @@ export default function AthleteGatePortal() {
     }
   }
 
-  const toggleSetCheckbox = (itemId, setIndex) => {
-    const key = `${itemId}-set-${setIndex}`;
+  // Parse a rest_timer string like "45s", "90s", "2 min", "None" into whole seconds
+  const parseRestSeconds = (restTimer) => {
+    if (!restTimer || restTimer === 'None') return 0;
+    const minMatch = String(restTimer).match(/(\d+)\s*min/);
+    if (minMatch) return parseInt(minMatch[1], 10) * 60;
+    const secMatch = String(restTimer).match(/(\d+)\s*s/);
+    if (secMatch) return parseInt(secMatch[1], 10);
+    const num = parseFloat(restTimer);
+    return Number.isFinite(num) ? num : 0;
+  };
+
+  const formatRestTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  // Marking a set complete kicks off a countdown against that exercise's rest_timer,
+  // shown in place of the "Rest: Xs" badge until it hits zero
+  const toggleSetCheckbox = (item, setIndex) => {
+    const key = `${item.id}-set-${setIndex}`;
+    const wasChecked = !!completedSets[key];
     setCompletedSets(prev => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: !wasChecked
     }));
+
+    if (!wasChecked) {
+      const seconds = parseRestSeconds(item.rest_timer);
+      if (seconds > 0) {
+        setRestTimers(prev => ({ ...prev, [item.id]: seconds }));
+      }
+    }
   };
+
+  // Tick every active rest timer down once per second while the workout modal is open
+  useEffect(() => {
+    if (!showWorkoutModal) return;
+    const interval = setInterval(() => {
+      setRestTimers(prev => {
+        let changed = false;
+        const next = { ...prev };
+        Object.keys(next).forEach(id => {
+          if (next[id] > 0) {
+            next[id] -= 1;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showWorkoutModal]);
 
   const chooseExerciseSwap = (itemId, altExercise) => {
     setExerciseSwaps(prev => ({ ...prev, [itemId]: altExercise }));
@@ -470,8 +529,13 @@ export default function AthleteGatePortal() {
                   )}
                 </div>
                 {item.rest_timer && item.rest_timer !== 'None' && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', flexShrink: 0 }}>
-                    <Timer size={10} /> Rest: {item.rest_timer}
+                  <span style={{
+                    display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'bold', flexShrink: 0,
+                    padding: '2px 6px', borderRadius: '4px',
+                    color: restTimers[item.id] > 0 ? '#4ade80' : '#fbbf24',
+                    backgroundColor: restTimers[item.id] > 0 ? 'rgba(74, 222, 128, 0.12)' : 'rgba(251, 191, 36, 0.1)'
+                  }}>
+                    <Timer size={10} /> {restTimers[item.id] > 0 ? `Resting: ${formatRestTime(restTimers[item.id])}` : `Rest: ${item.rest_timer}`}
                   </span>
                 )}
               </div>
@@ -502,7 +566,7 @@ export default function AthleteGatePortal() {
                     return (
                       <button 
                         key={idx} 
-                        onClick={() => toggleSetCheckbox(item.id, idx)}
+                        onClick={() => toggleSetCheckbox(item, idx)}
                         style={{ flex: 1, backgroundColor: isChecked ? '#dc2626' : '#1c232b', border: isChecked ? '1px solid #dc2626' : '1px solid #1f262e', color: isChecked ? '#ffffff' : '#9ca3af', fontWeight: 'bold', padding: '6px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer', transition: 'all 0.15s' }}
                       >
                         S{idx + 1}
@@ -783,24 +847,68 @@ export default function AthleteGatePortal() {
                 Got It, Close
               </button>
             </div>
+          ) : workoutItems.length > 0 && workoutStage === 'cover' ? (
+            <div style={{ maxWidth: '440px', margin: '60px auto 0 auto', textAlign: 'center' }}>
+              <Flame size={40} style={{ color: '#dc2626', margin: '0 auto 16px auto' }} />
+              <h2 style={{ fontSize: '22px', fontWeight: '900', margin: '0 0 8px 0' }}>{activeWorkout?.title || 'Assigned Workout'}</h2>
+              <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 28px 0' }}>
+                {workoutSections.length} block{workoutSections.length === 1 ? '' : 's'} · {workoutItems.length} exercise{workoutItems.length === 1 ? '' : 's'}
+              </p>
+              <button
+                onClick={() => setWorkoutStage('active')}
+                style={{ width: '100%', backgroundColor: '#ff0000', color: '#ffffff', border: 'none', borderRadius: '12px', padding: '18px', fontSize: '16px', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 6px 20px rgba(255, 0, 0, 0.3)' }}
+              >
+                <Zap size={18} /> Start Workout
+              </button>
+            </div>
           ) : workoutItems.length > 0 ? (
             <div style={{ maxWidth: '600px', margin: '0 auto', pb: '40px' }}>
-              {workoutSections.map((sectionName, idx) => {
+              {/* BLOCK PROGRESS INDICATOR */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+                {workoutSections.map((name, idx) => (
+                  <div key={name} style={{ flex: 1, height: '4px', borderRadius: '2px', backgroundColor: idx <= currentSectionIndex ? '#dc2626' : '#222' }} />
+                ))}
+              </div>
+              <p style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.05em', margin: '0 0 16px 0' }}>
+                Block {currentSectionIndex + 1} of {workoutSections.length}
+              </p>
+
+              {(() => {
+                const sectionName = workoutSections[currentSectionIndex];
                 const style = KNOWN_SECTION_STYLES[sectionName] || {
                   label: sectionName,
-                  color: FALLBACK_SECTION_COLORS[idx % FALLBACK_SECTION_COLORS.length],
+                  color: FALLBACK_SECTION_COLORS[currentSectionIndex % FALLBACK_SECTION_COLORS.length],
                   bg: 'rgba(255, 255, 255, 0.04)'
                 };
                 const items = workoutItems.filter(item => item.block_type === sectionName);
-                return renderBlockSection(`${idx + 1}. ${style.label}`, items, style.color, style.bg);
-              })}
-              
-              <button
-                onClick={handleCompleteWorkout}
-                style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#ffffff', fontWeight: 'bold', padding: '14px', borderRadius: '8px', cursor: 'pointer', marginTop: '20px' }}
-              >
-                Complete Workout & Close Session
-              </button>
+                return renderBlockSection(`${currentSectionIndex + 1}. ${style.label}`, items, style.color, style.bg);
+              })()}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                {currentSectionIndex > 0 && (
+                  <button
+                    onClick={() => setCurrentSectionIndex(i => Math.max(0, i - 1))}
+                    style={{ flex: 1, backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#ffffff', fontWeight: 'bold', padding: '14px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    ← Previous
+                  </button>
+                )}
+                {currentSectionIndex < workoutSections.length - 1 ? (
+                  <button
+                    onClick={() => setCurrentSectionIndex(i => Math.min(workoutSections.length - 1, i + 1))}
+                    style={{ flex: 2, backgroundColor: '#dc2626', border: 'none', color: '#ffffff', fontWeight: 'bold', padding: '14px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    Next: {KNOWN_SECTION_STYLES[workoutSections[currentSectionIndex + 1]]?.label || workoutSections[currentSectionIndex + 1]} →
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleCompleteWorkout}
+                    style={{ flex: 2, backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#ffffff', fontWeight: 'bold', padding: '14px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    ✅ Complete Workout & Close Session
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div style={{ border: '2px dashed #222', borderRadius: '12px', padding: '40px', textAlign: 'center', color: '#666', marginTop: '40px' }}>
