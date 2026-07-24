@@ -4,9 +4,10 @@ export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { toLocalDateString } from '../../lib/dateUtils.js';
 import {
   Dumbbell, Timer, CheckCircle, Activity, Award, User, Lock, ArrowRight, Zap, Target, Flame, X, Repeat,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon, MessageSquare, ClipboardCheck
 } from 'lucide-react';
 
 export default function AthleteGatePortal() {
@@ -152,7 +153,7 @@ export default function AthleteGatePortal() {
   async function fetchLatestWorkout(athleteId) {
     try {
       setLoadingWorkout(true);
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = toLocalDateString();
 
       let { data: workoutHeader, error: headerErr } = await supabase
         .from('workouts')
@@ -232,6 +233,14 @@ export default function AthleteGatePortal() {
     }
   };
 
+  // "Today's Assignment" sidebar tab - refetches in case the date rolled over since
+  // login, then pulls the assignment straight up (workout, video, doc, or note)
+  const openTodaysAssignment = async () => {
+    if (!currentAthlete) return;
+    setShowWorkoutModal(true);
+    await fetchLatestWorkout(currentAthlete.id);
+  };
+
   // Resolve which alternate/modified exercises are available for each prescribed item,
   // so athletes can swap movements (e.g. no barbell available -> goblet squat instead)
   async function loadAlternateOptions(items) {
@@ -291,6 +300,22 @@ export default function AthleteGatePortal() {
     if (val === null || val === undefined || val === '') return null;
     const num = parseFloat(String(val).replace(/[^0-9.\-]/g, ''));
     return Number.isFinite(num) ? num : null;
+  };
+
+  // Convert common YouTube link formats into an embeddable URL, for video assignments
+  const toEmbedUrl = (url) => {
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtube.com') && u.searchParams.get('v')) {
+        return `https://www.youtube.com/embed/${u.searchParams.get('v')}`;
+      }
+      if (u.hostname.includes('youtu.be')) {
+        return `https://www.youtube.com/embed${u.pathname}`;
+      }
+      return url;
+    } catch {
+      return url;
+    }
   };
 
   // Log one exercise_logs row per exercise that had at least one set checked off,
@@ -501,7 +526,7 @@ export default function AthleteGatePortal() {
     const month = calendarMonth.getMonth();
     const firstDayOfWeek = new Date(year, month, 1).getDay();
     const totalDays = new Date(year, month + 1, 0).getDate();
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = toLocalDateString();
 
     const workoutsByDate = {};
     allWorkouts.forEach(w => {
@@ -586,11 +611,17 @@ export default function AthleteGatePortal() {
           </div>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button onClick={() => setAthleteView('today')} title="Today" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'today' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
-              <Flame size={16} /> {sidebarExpanded && 'Today'}
+            <button onClick={() => setAthleteView('today')} title="Home Screen" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'today' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
+              <Flame size={16} /> {sidebarExpanded && 'Home Screen'}
+            </button>
+            <button onClick={openTodaysAssignment} title="Today's Assignment" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: 'transparent', color: '#ffffff' }}>
+              <ClipboardCheck size={16} /> {sidebarExpanded && "Today's Assignment"}
             </button>
             <button onClick={() => setAthleteView('calendar')} title="Calendar" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'calendar' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
               <CalendarIcon size={16} /> {sidebarExpanded && 'Calendar'}
+            </button>
+            <button onClick={() => setAthleteView('messages')} title="Messages" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'messages' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
+              <MessageSquare size={16} /> {sidebarExpanded && 'Messages'}
             </button>
           </nav>
         </div>
@@ -660,10 +691,13 @@ export default function AthleteGatePortal() {
 
             {/* CORE INTERACTIVE WORKOUT LAUNCH BUTTON */}
             <button
-              onClick={() => setShowWorkoutModal(true)}
+              onClick={openTodaysAssignment}
               style={{ width: '100%', backgroundColor: '#ff0000', color: '#ffffff', border: 'none', borderRadius: '12px', padding: '18px', fontSize: '16px', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 6px 20px rgba(255, 0, 0, 0.3)', marginBottom: '16px' }}
             >
-              🔥 Today's Assigned Workout
+              {activeWorkout?.assignment_type === 'video' && "🎬 Today's Video Assignment"}
+              {activeWorkout?.assignment_type === 'document' && "📄 Today's Document"}
+              {activeWorkout?.assignment_type === 'note' && "📝 Today's Note"}
+              {(!activeWorkout?.assignment_type || activeWorkout.assignment_type === 'workout') && "🔥 Today's Assigned Workout"}
             </button>
           </>
         )}
@@ -675,6 +709,17 @@ export default function AthleteGatePortal() {
               {renderCalendarGrid()}
             </div>
             <p style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>Tap a highlighted day to view that session.</p>
+          </>
+        )}
+
+        {athleteView === 'messages' && (
+          <>
+            <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#dc2626', margin: '0 0 16px 0', letterSpacing: '0.02em' }}>Messages</h3>
+            <div style={{ border: '2px dashed #1f262e', borderRadius: '10px', padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+              <MessageSquare size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
+              <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>Direct messaging with your coach is on the roadmap, not built yet.</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Say the word and this becomes the next build.</p>
+            </div>
           </>
         )}
       </main>
@@ -700,6 +745,43 @@ export default function AthleteGatePortal() {
             <div style={{ padding: '60px 0', textAlign: 'center', color: '#9ca3af' }}>
               <Activity className="animate-spin" size={28} style={{ color: '#dc2626', margin: '0 auto 12px auto' }} />
               <span>Syncing customized prescription lines...</span>
+            </div>
+          ) : activeWorkout?.assignment_type && activeWorkout.assignment_type !== 'workout' ? (
+            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+              <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '12px', padding: '20px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '10px', fontWeight: '900', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {activeWorkout.assignment_type === 'video' ? '🎬 Video Assignment' : activeWorkout.assignment_type === 'document' ? '📄 Document Assignment' : '📝 Coach Note'}
+                </span>
+
+                {activeWorkout.notes && (
+                  <p style={{ fontSize: '14px', color: '#d1d5db', lineHeight: '1.6', margin: '12px 0 0 0', whiteSpace: 'pre-wrap' }}>{activeWorkout.notes}</p>
+                )}
+
+                {activeWorkout.assignment_type === 'video' && activeWorkout.content_url && (
+                  <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', backgroundColor: '#000', borderRadius: '10px', overflow: 'hidden', marginTop: '16px' }}>
+                    <iframe
+                      src={toEmbedUrl(activeWorkout.content_url)}
+                      title="Assignment video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                    />
+                  </div>
+                )}
+
+                {activeWorkout.assignment_type === 'document' && activeWorkout.content_url && (
+                  <a href={activeWorkout.content_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '16px', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#60a5fa', fontWeight: 'bold', padding: '14px', borderRadius: '8px', textDecoration: 'none', fontSize: '14px' }}>
+                    View Document ↗
+                  </a>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowWorkoutModal(false)}
+                style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', color: '#ffffff', fontWeight: 'bold', padding: '14px', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Got It, Close
+              </button>
             </div>
           ) : workoutItems.length > 0 ? (
             <div style={{ maxWidth: '600px', margin: '0 auto', pb: '40px' }}>

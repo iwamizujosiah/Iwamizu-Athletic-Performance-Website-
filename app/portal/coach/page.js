@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase.js';
+import { toLocalDateString } from '../../../lib/dateUtils.js';
 import {
   Users, Dumbbell, Calendar, MessageSquare, Settings,
   Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Trash2, CheckCircle, Timer,
@@ -95,9 +96,12 @@ export default function CoachingDashboard() {
   const [workoutName, setWorkoutName] = useState('Championship GPP Protocol');
   const [currentPrescription, setCurrentPrescription] = useState([]);
   const [saveStatus, setSaveStatus] = useState('');
-  const [workoutScheduledDate, setWorkoutScheduledDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [workoutScheduledDate, setWorkoutScheduledDate] = useState(() => toLocalDateString());
   const [repeatMode, setRepeatMode] = useState('none'); // none | daily | weekly | monthly
   const [repeatCount, setRepeatCount] = useState(1);
+  const [assignmentType, setAssignmentType] = useState('workout'); // workout | video | document | note
+  const [assignmentContentUrl, setAssignmentContentUrl] = useState('');
+  const [assignmentNotes, setAssignmentNotes] = useState('');
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
   const [rxTargetSection, setRxTargetSection] = useState('Activation'); // which section newly-clicked exercises land in
@@ -648,7 +652,7 @@ export default function CoachingDashboard() {
       if (mode === 'daily') d.setDate(d.getDate() + i);
       else if (mode === 'weekly') d.setDate(d.getDate() + i * 7);
       else if (mode === 'monthly') d.setMonth(d.getMonth() + i);
-      dates.push(d.toISOString().slice(0, 10));
+      dates.push(toLocalDateString(d));
     }
     return dates;
   };
@@ -656,8 +660,16 @@ export default function CoachingDashboard() {
   // Commit Workout Prescription Live to Relational Supabase Tables — one row per
   // scheduled date, so a coach can build out a week/month/quarter/year in one push
   const handleSaveWorkout = async () => {
-    if (!targetAthleteId || currentPrescription.length === 0) {
-      setSaveStatus('⚠️ Please select an athlete and add exercises.');
+    if (!targetAthleteId) {
+      setSaveStatus('⚠️ Please select an athlete.');
+      return;
+    }
+    if (assignmentType === 'workout' && currentPrescription.length === 0) {
+      setSaveStatus('⚠️ Please add exercises, or switch Assignment Type to Video/Document/Note.');
+      return;
+    }
+    if (assignmentType !== 'workout' && !assignmentContentUrl.trim() && !assignmentNotes.trim()) {
+      setSaveStatus('⚠️ Add a link and/or notes for this assignment.');
       return;
     }
 
@@ -672,35 +684,40 @@ export default function CoachingDashboard() {
           .insert([{
             athlete_id: targetAthleteId,
             title: workoutName,
-            scheduled_date: dateStr
+            scheduled_date: dateStr,
+            assignment_type: assignmentType,
+            content_url: assignmentType !== 'workout' ? (assignmentContentUrl.trim() || null) : null,
+            notes: assignmentType !== 'workout' ? (assignmentNotes.trim() || null) : null
           }])
           .select()
           .single();
 
         if (workoutErr) throw workoutErr;
 
-        const newWorkoutId = workoutData.id;
+        if (assignmentType === 'workout') {
+          const newWorkoutId = workoutData.id;
 
-        const itemsToInsert = currentPrescription.map((item, idx) => ({
-          workout_id: newWorkoutId,
-          exercise_name: item.name,
-          block_type: item.block_type,
-          modality: item.modality || 'Bodyweight',
-          tracking_unit: item.tracking_unit,
-          sets: parseInt(item.sets) || 3,
-          reps: item.reps ? String(item.reps) : null,
-          load_value: item.load_value ? String(item.load_value) : null,
-          seconds_value: item.seconds_value ? String(item.seconds_value) : null,
-          distance_value: item.distance_value ? String(item.distance_value) : null,
-          rest_timer: item.rest_timer || '60s',
-          order_index: idx
-        }));
+          const itemsToInsert = currentPrescription.map((item, idx) => ({
+            workout_id: newWorkoutId,
+            exercise_name: item.name,
+            block_type: item.block_type,
+            modality: item.modality || 'Bodyweight',
+            tracking_unit: item.tracking_unit,
+            sets: parseInt(item.sets) || 3,
+            reps: item.reps ? String(item.reps) : null,
+            load_value: item.load_value ? String(item.load_value) : null,
+            seconds_value: item.seconds_value ? String(item.seconds_value) : null,
+            distance_value: item.distance_value ? String(item.distance_value) : null,
+            rest_timer: item.rest_timer || '60s',
+            order_index: idx
+          }));
 
-        const { error: itemsErr } = await supabase
-          .from('workout_items')
-          .insert(itemsToInsert);
+          const { error: itemsErr } = await supabase
+            .from('workout_items')
+            .insert(itemsToInsert);
 
-        if (itemsErr) throw itemsErr;
+          if (itemsErr) throw itemsErr;
+        }
       }
 
       setSaveStatus(scheduledDates.length > 1
@@ -709,6 +726,9 @@ export default function CoachingDashboard() {
       setCurrentPrescription([]);
       setRepeatMode('none');
       setRepeatCount(1);
+      setAssignmentType('workout');
+      setAssignmentContentUrl('');
+      setAssignmentNotes('');
 
     } catch (err) {
       console.error("Relational schema write failure:", err.message);
@@ -1251,7 +1271,7 @@ export default function CoachingDashboard() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: repeatMode === 'none' ? '1fr 1fr' : '1fr 1fr 1fr', gap: '20px', alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: repeatMode === 'none' ? '1fr 1fr' : '1fr 1fr 1fr', gap: '20px', alignItems: 'end', marginBottom: '20px' }}>
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>3. Scheduled Date</label>
                   <input type="date" value={workoutScheduledDate} onChange={(e) => setWorkoutScheduledDate(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', colorScheme: 'dark' }} />
@@ -1276,16 +1296,64 @@ export default function CoachingDashboard() {
               {repeatMode !== 'none' && (() => {
                 const previewDates = computeScheduledDates(workoutScheduledDate, repeatMode, repeatCount);
                 return (
-                  <p style={{ fontSize: '12px', color: '#60a5fa', margin: '12px 0 0 0' }}>
+                  <p style={{ fontSize: '12px', color: '#60a5fa', margin: '0 0 20px 0' }}>
                     Will create {previewDates.length} session{previewDates.length === 1 ? '' : 's'}: {previewDates[0]} → {previewDates[previewDates.length - 1]}
                   </p>
                 );
               })()}
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>5. Assignment Type</label>
+                <div style={{ display: 'flex', gap: '6px', backgroundColor: '#1c232b', padding: '4px', borderRadius: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    { key: 'workout', label: 'Workout' },
+                    { key: 'video', label: 'Video Link' },
+                    { key: 'document', label: 'Document' },
+                    { key: 'note', label: 'Note / Instructions' }
+                  ].map(opt => (
+                    <button key={opt.key} onClick={() => setAssignmentType(opt.key)} style={{ flex: '1 0 auto', padding: '8px 12px', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: assignmentType === opt.key ? '#dc2626' : 'transparent', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
+            {/* NON-WORKOUT ASSIGNMENT: VIDEO / DOCUMENT / NOTE */}
+            {assignmentType !== 'workout' && (
+              <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '20px', marginBottom: '24px', maxWidth: '600px' }}>
+                {assignmentType !== 'note' && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+                      {assignmentType === 'video' ? 'Video Link (YouTube, etc.)' : 'Document Link'}
+                    </label>
+                    <input type="url" value={assignmentContentUrl} onChange={(e) => setAssignmentContentUrl(e.target.value)} placeholder={assignmentType === 'video' ? 'https://youtube.com/watch?v=...' : 'https://docs.google.com/...'} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 12px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }} />
+                  </div>
+                )}
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>
+                    {assignmentType === 'note' ? 'Instructions' : 'Notes (optional)'}
+                  </label>
+                  <textarea value={assignmentNotes} onChange={(e) => setAssignmentNotes(e.target.value)} rows={5} placeholder="What do they need to do?" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px 12px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+                </div>
+
+                <div style={{ borderTop: '1px solid #1f262e', marginTop: '16px', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={handleSaveWorkout} style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.2)' }}>
+                    <CheckCircle size={16} /> Push Assignment to Athlete
+                  </button>
+                </div>
+                {saveStatus && (
+                  <p style={{ fontSize: '13px', color: '#fbbf24', textAlign: 'right', margin: '12px 0 0 0', fontWeight: '600' }}>
+                    {saveStatus}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* TWO COLUMN INTERACTIVE PALETTE */}
+            {assignmentType === 'workout' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', alignItems: 'start' }}>
-              
+
               {/* LEFT COLUMN: THE MASTER CURRICULUM SELECTOR */}
               <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 12px 0', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em' }}>Database Curriculum</h4>
@@ -1465,6 +1533,7 @@ export default function CoachingDashboard() {
               </div>
 
             </div>
+            )}
           </div>
         )}
 
