@@ -1,6 +1,7 @@
 export default function Home() {
   const googleFormUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfIeWDyCtHH8teR4vRPkNWzBdn0_0o6IYzOBC4CdTsaVi1h_w/viewform?embedded=true";
   const clientPortalUrl = "/portal"; 
+  const coachPortalUrl = "/portal/coach";
   const brandRed = "#ff0000";
 
   return (
@@ -17,6 +18,9 @@ export default function Home() {
           <a href="#apply" style={{ color: '#fff', textDecoration: 'none' }}>Apply</a>
           <a href="#connect" style={{ color: '#fff', textDecoration: 'none' }}>Connect</a>
           <a href={clientPortalUrl} style={{ background: '#333', padding: '5px 10px', textDecoration: 'none', color: '#fff', border: '1px solid #fff' }}>Client Portal</a>
+          
+          {/* COACH PORTAL LINK TAB */}
+          <a href={coachPortalUrl} style={{ background: 'rgba(255, 0, 0, 0.1)', padding: '5px 10px', textDecoration: 'none', color: '#fff', border: `1px solid ${brandRed}`, fontWeight: 'bold' }}>Coach Portal</a>
         </nav>
       </header>
 
@@ -93,10 +97,13 @@ export default function Home() {
       {/* Connect */}
       <section id="connect" style={{ padding: '50px 20px', textAlign: 'center', borderTop: `2px solid ${brandRed}` }}>
         <h2 style={{ color: brandRed }}>Connect</h2>
-        <p style={{ color: brandRed }}>
-          Jo Iwamizu | 
-          <a href="tel:5419087016" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none', marginLeft: '5px' }}>
+        <p style={{ color: brandRed, lineHeight: '1.6' }}>
+          Jo Iwamizu <br />
+          <a href="tel:5419087016" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>
             541-908-7016
+          </a> <br />
+          <a href="mailto:coaching@iwamizuathleticperformance.com" style={{ color: brandRed, fontWeight: 'bold', textDecoration: 'none' }}>
+            coaching@iwamizuathleticperformance.com
           </a>
         </p>
         <div style={{ marginTop: '10px' }}>

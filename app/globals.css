@@ -1,23 +1,14 @@
-/* app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --primary-color: #ff0000; /* Update this to your brand red */
-  --bg-color: #000000;     /* Update this to your brand black */
-  --text-light: #ffffff;
+  --background: #0d0f12;
+  --foreground: #ffffff;
 }
 
 body {
-  margin: 0;
-  font-family: sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-light);
-}
-
-/* Style your buttons consistently */
-button {
-  background-color: var(--primary-color);
-  color: white;
-  padding: 15px 40px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
 }
