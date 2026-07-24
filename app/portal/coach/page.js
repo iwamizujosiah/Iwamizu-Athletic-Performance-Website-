@@ -8,7 +8,8 @@ import { supabase } from '../../../lib/supabase.js';
 import {
   Users, Dumbbell, Calendar, MessageSquare, Settings,
   Search, ShieldAlert, Award, Activity, Plus, Lock, KeyRound, Trash2, CheckCircle, Timer,
-  BookOpen, Pencil, PlayCircle, X, ClipboardList, TrendingUp, TrendingDown, Minus, FileWarning
+  BookOpen, Pencil, PlayCircle, X, ClipboardList, TrendingUp, TrendingDown, Minus, FileWarning,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const DEFAULT_SECTIONS = ['Activation', 'Movement', 'Athletic Block', 'Strength'];
@@ -64,6 +65,7 @@ export default function CoachingDashboard() {
 
   // Dashboard Navigation & Data States
   const [activeTab, setActiveTab] = useState('athletes');
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [athletes, setAthletes] = useState([]);
   const [selectedAthlete, setSelectedAthlete] = useState(null);
@@ -142,7 +144,19 @@ export default function CoachingDashboard() {
     if (authStatus === 'true') {
       setIsAuthorized(true);
     }
+    const savedSidebarPref = localStorage.getItem('coach_sidebar_expanded');
+    if (savedSidebarPref === 'true') {
+      setSidebarExpanded(true);
+    }
   }, []);
+
+  const toggleSidebar = () => {
+    setSidebarExpanded(prev => {
+      const next = !prev;
+      localStorage.setItem('coach_sidebar_expanded', String(next));
+      return next;
+    });
+  };
 
   // Load Database Data (Athletes & Master Exercise Library)
   useEffect(() => {
@@ -966,43 +980,52 @@ export default function CoachingDashboard() {
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d0f12', color: '#ffffff', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
       
       {/* SIDEBAR NAVIGATION */}
-      <aside style={{ width: '260px', backgroundColor: '#12161a', borderRight: '1px solid #1f262e', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '24px', flexShrink: 0, boxSizing: 'border-box' }}>
+      <aside style={{ width: sidebarExpanded ? '260px' : '76px', backgroundColor: '#12161a', borderRight: '1px solid #1f262e', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: sidebarExpanded ? '24px' : '24px 14px', flexShrink: 0, boxSizing: 'border-box', transition: 'width 0.18s ease, padding 0.18s ease', overflow: 'hidden' }}>
         <div>
-          <div style={{ marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ backgroundColor: '#12161a', borderRadius: '8px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-              <img src="/logo.png" alt="Iwamizu Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-            </div>
-            <div>
-              <h1 style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '0.05em', color: '#dc2626', margin: '0' }}>IWAMIZU</h1>
-              <p style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', margin: '0' }}>Athletic Performance</p>
-            </div>
+          <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'space-between' : 'center', gap: '8px' }}>
+            {sidebarExpanded && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                <div style={{ backgroundColor: '#12161a', borderRadius: '8px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                  <img src="/logo.png" alt="Iwamizu Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h1 style={{ fontSize: '18px', fontWeight: '900', letterSpacing: '0.05em', color: '#dc2626', margin: '0', whiteSpace: 'nowrap' }}>IWAMIZU</h1>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9ca3af', margin: '0', whiteSpace: 'nowrap' }}>Athletic Performance</p>
+                </div>
+              </div>
+            )}
+            <button onClick={toggleSidebar} title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'} style={{ backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', flexShrink: 0 }}>
+              {sidebarExpanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            </button>
           </div>
 
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button onClick={() => setActiveTab('athletes')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'athletes' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
-              <Users size={18} /> Athletes
+            <button onClick={() => setActiveTab('athletes')} title="Athletes" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'athletes' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
+              <Users size={18} /> {sidebarExpanded && 'Athletes'}
             </button>
-            <button onClick={() => setActiveTab('workouts')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'workouts' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
-              <Dumbbell size={18} /> Workouts
+            <button onClick={() => setActiveTab('workouts')} title="Workouts" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'workouts' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
+              <Dumbbell size={18} /> {sidebarExpanded && 'Workouts'}
             </button>
-            <button onClick={() => setActiveTab('library')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'library' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
-              <BookOpen size={18} /> Exercise Library
+            <button onClick={() => setActiveTab('library')} title="Exercise Library" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'library' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
+              <BookOpen size={18} /> {sidebarExpanded && 'Exercise Library'}
             </button>
-            <button onClick={() => setActiveTab('templates')} style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'templates' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
-              <ClipboardList size={18} /> Program Templates
+            <button onClick={() => setActiveTab('templates')} title="Program Templates" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'templates' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}>
+              <ClipboardList size={18} /> {sidebarExpanded && 'Program Templates'}
             </button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><Calendar size={18} /> Calendar</button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><MessageSquare size={18} /> Messages</button>
-            <button style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 16px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><Settings size={18} /> System Settings</button>
+            <button title="Calendar" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><Calendar size={18} /> {sidebarExpanded && 'Calendar'}</button>
+            <button title="Messages" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><MessageSquare size={18} /> {sidebarExpanded && 'Messages'}</button>
+            <button title="System Settings" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><Settings size={18} /> {sidebarExpanded && 'System Settings'}</button>
           </nav>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '16px', borderTop: '1px solid #1f262e' }}>
-          <div style={{ width: '40px', height: '40px', backgroundColor: '#dc2626', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#ffffff', textAlign: 'center', lineHeight: '40px', fontSize: '14px' }}>JI</div>
-          <div>
-            <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0' }}>Josiah Iwamizu</h4>
-            <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0' }}>Head Coach</p>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', paddingTop: '16px', borderTop: '1px solid #1f262e' }}>
+          <div title="Josiah Iwamizu - Head Coach" style={{ width: '40px', height: '40px', backgroundColor: '#dc2626', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#ffffff', textAlign: 'center', lineHeight: '40px', fontSize: '14px', flexShrink: 0 }}>JI</div>
+          {sidebarExpanded && (
+            <div style={{ minWidth: 0 }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0', whiteSpace: 'nowrap' }}>Josiah Iwamizu</h4>
+              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0', whiteSpace: 'nowrap' }}>Head Coach</p>
+            </div>
+          )}
         </div>
       </aside>
 
