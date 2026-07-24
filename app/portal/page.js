@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase.js';
 import { toLocalDateString } from '../../lib/dateUtils.js';
 import {
   Dumbbell, Timer, CheckCircle, Activity, Award, User, Lock, ArrowRight, Zap, Target, Flame, X, Repeat,
-  Calendar as CalendarIcon, MessageSquare, ClipboardCheck
+  Calendar as CalendarIcon, MessageSquare, ClipboardCheck, Settings as SettingsIcon
 } from 'lucide-react';
 
 export default function AthleteGatePortal() {
@@ -36,13 +36,18 @@ export default function AthleteGatePortal() {
 
   // Sidebar Navigation & Calendar View States
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [athleteView, setAthleteView] = useState('today'); // 'today' | 'calendar'
+  const [athleteView, setAthleteView] = useState('today'); // 'today' | 'calendar' | 'messages' | 'settings'
   const [allWorkouts, setAllWorkouts] = useState([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+
+  // Settings tab: set/change personal password
+  const [athletePasswordForm, setAthletePasswordForm] = useState({ current: '', next: '', confirm: '' });
+  const [athletePasswordStatus, setAthletePasswordStatus] = useState('');
+  const [changingAthletePassword, setChangingAthletePassword] = useState(false);
 
   // Performance Dashboard Data States (Mock aggregates matching image structure)
   const [metrics, setMetrics] = useState({
@@ -128,6 +133,46 @@ export default function AthleteGatePortal() {
       setAuthError(`Network timeout connecting to performance registry: ${err.message}`);
     } finally {
       setLoadingWorkout(false);
+    }
+  };
+
+  // Set or change the athlete's personal password. Doesn't require a current
+  // password the first time (has_password is false until one's been set).
+  const handleChangeAthletePassword = async (e) => {
+    e.preventDefault();
+    setAthletePasswordStatus('');
+
+    if (athletePasswordForm.next.length < 8) {
+      setAthletePasswordStatus('⚠️ New password must be at least 8 characters.');
+      return;
+    }
+    if (athletePasswordForm.next !== athletePasswordForm.confirm) {
+      setAthletePasswordStatus('⚠️ New password and confirmation do not match.');
+      return;
+    }
+
+    try {
+      setChangingAthletePassword(true);
+      const { data, error } = await supabase.rpc('set_athlete_password', {
+        p_athlete_id: currentAthlete.id,
+        current_password: currentAthlete.has_password ? athletePasswordForm.current : null,
+        new_password: athletePasswordForm.next
+      });
+      if (error) throw error;
+
+      if (data === true) {
+        const updatedAthlete = { ...currentAthlete, has_password: true };
+        setCurrentAthlete(updatedAthlete);
+        localStorage.setItem('athlete_profile', JSON.stringify(updatedAthlete));
+        setAthletePasswordStatus('✅ Password saved.');
+        setAthletePasswordForm({ current: '', next: '', confirm: '' });
+      } else {
+        setAthletePasswordStatus('❌ Current password is incorrect.');
+      }
+    } catch (err) {
+      setAthletePasswordStatus(`❌ ${err.message}`);
+    } finally {
+      setChangingAthletePassword(false);
     }
   };
 
@@ -682,6 +727,9 @@ export default function AthleteGatePortal() {
             <button onClick={() => setAthleteView('messages')} title="Messages" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'messages' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
               <MessageSquare size={16} /> {sidebarExpanded && 'Messages'}
             </button>
+            <button onClick={() => setAthleteView('settings')} title="Settings" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'settings' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
+              <SettingsIcon size={16} /> {sidebarExpanded && 'Settings'}
+            </button>
           </nav>
         </div>
 
@@ -778,6 +826,50 @@ export default function AthleteGatePortal() {
               <MessageSquare size={28} style={{ color: '#1f262e', margin: '0 auto 12px auto' }} />
               <p style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>Direct messaging with your coach is on the roadmap, not built yet.</p>
               <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Say the word and this becomes the next build.</p>
+            </div>
+          </>
+        )}
+
+        {athleteView === 'settings' && (
+          <>
+            <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#dc2626', margin: '0 0 16px 0', letterSpacing: '0.02em' }}>Settings</h3>
+
+            <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '12px', padding: '20px', maxWidth: '420px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: 'bold', margin: '0 0 4px 0' }}>
+                {currentAthlete?.has_password ? 'Change Password' : 'Set a Password'}
+              </h4>
+              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 20px 0' }}>
+                {currentAthlete?.has_password
+                  ? 'Update the password on your account.'
+                  : "You don't have a password yet — you can still log in with your name or access code, but setting one adds a layer only you know."}
+              </p>
+
+              <form onSubmit={handleChangeAthletePassword}>
+                {currentAthlete?.has_password && (
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Current Password</label>
+                    <input type="password" required value={athletePasswordForm.current} onChange={(e) => setAthletePasswordForm({ ...athletePasswordForm, current: e.target.value })} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                )}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>New Password</label>
+                  <input type="password" required value={athletePasswordForm.next} onChange={(e) => setAthletePasswordForm({ ...athletePasswordForm, next: e.target.value })} placeholder="At least 8 characters" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Confirm New Password</label>
+                  <input type="password" required value={athletePasswordForm.confirm} onChange={(e) => setAthletePasswordForm({ ...athletePasswordForm, confirm: e.target.value })} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+
+                <button type="submit" disabled={changingAthletePassword} style={{ width: '100%', backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '12px', borderRadius: '8px', cursor: changingAthletePassword ? 'default' : 'pointer', fontSize: '14px', opacity: changingAthletePassword ? 0.7 : 1 }}>
+                  {changingAthletePassword ? 'Saving...' : currentAthlete?.has_password ? 'Update Password' : 'Set Password'}
+                </button>
+
+                {athletePasswordStatus && (
+                  <p style={{ fontSize: '13px', color: '#fbbf24', margin: '14px 0 0 0', fontWeight: '600' }}>
+                    {athletePasswordStatus}
+                  </p>
+                )}
+              </form>
             </div>
           </>
         )}
