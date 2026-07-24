@@ -126,6 +126,10 @@ export default function CoachingDashboard() {
     sessionsPerWeek: 24
   });
 
+  // Add Athlete Modal
+  const [showAddAthleteModal, setShowAddAthleteModal] = useState(false);
+  const [newAthleteForm, setNewAthleteForm] = useState({ name: '', email: '', access_code: '', weight_lbs: '', status: 'On Track' });
+
   // Verify access key to ensure only YOU can register/view this portal
   const handleVerifyKey = (e) => {
     e.preventDefault();
@@ -888,6 +892,61 @@ export default function CoachingDashboard() {
     setActiveTab('workouts');
   };
 
+  // Suggest an access code in the same IW-XX-0000 format used elsewhere in the app
+  const generateAccessCode = (name) => {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const initials = parts.length > 0
+      ? (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase()
+      : 'XX';
+    const digits = Math.floor(1000 + Math.random() * 9000);
+    return `IW-${initials}-${digits}`;
+  };
+
+  const openAddAthleteModal = () => {
+    setNewAthleteForm({ name: '', email: '', access_code: '', weight_lbs: '', status: 'On Track' });
+    setShowAddAthleteModal(true);
+  };
+
+  const handleAthleteNameChange = (name) => {
+    setNewAthleteForm(prev => ({
+      ...prev,
+      name,
+      access_code: prev.access_code && prev.access_code !== generateAccessCode(prev.name) ? prev.access_code : (name.trim() ? generateAccessCode(name) : '')
+    }));
+  };
+
+  // Create a new athlete profile in the roster
+  const handleSaveAthlete = async (e) => {
+    e.preventDefault();
+    if (!newAthleteForm.name.trim()) return;
+
+    const payload = {
+      name: newAthleteForm.name.trim(),
+      email: newAthleteForm.email.trim() || null,
+      access_code: newAthleteForm.access_code.trim() || generateAccessCode(newAthleteForm.name),
+      weight_lbs: newAthleteForm.weight_lbs ? parseInt(newAthleteForm.weight_lbs, 10) : null,
+      status: newAthleteForm.status,
+      streak_percentage: 100
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('athletes')
+        .insert([payload])
+        .select()
+        .single();
+      if (error) throw error;
+
+      setAthletes(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedAthlete(data);
+      setTargetAthleteId(data.id);
+      setShowAddAthleteModal(false);
+      setLibraryToast(`✅ Added "${data.name}" (code: ${data.access_code}) to the roster`);
+    } catch (err) {
+      setLibraryToast(`❌ ${err.message}`);
+    }
+  };
+
   const filteredAthletes = athletes.filter(athlete =>
     athlete.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -1068,7 +1127,7 @@ export default function CoachingDashboard() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h3 style={{ fontSize: '18px', fontWeight: '900', margin: '0' }}>Athlete Roster</h3>
-                  <button style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={14} /> Add Athlete</button>
+                  <button onClick={openAddAthleteModal} style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={14} /> Add Athlete</button>
                 </div>
 
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
@@ -1771,6 +1830,57 @@ export default function CoachingDashboard() {
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => { setShowExerciseModal(false); setEditingExercise(null); }} style={{ backgroundColor: 'transparent', border: '1px solid #1f262e', color: '#9ca3af', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
                 <button type="submit" style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>{editingExercise ? 'Save Changes' : 'Add Movement'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD ATHLETE MODAL */}
+      {showAddAthleteModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', boxSizing: 'border-box' }}>
+          <div style={{ width: '100%', maxWidth: '420px', backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '16px', padding: '28px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '900', margin: '0' }}>Add Athlete</h3>
+              <button onClick={() => setShowAddAthleteModal(false)} style={{ backgroundColor: '#1c232b', border: 'none', color: '#ffffff', width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <X size={14} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAthlete}>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Full Name</label>
+                <input type="text" required value={newAthleteForm.name} onChange={(e) => handleAthleteNameChange(e.target.value)} placeholder="e.g. Katey Iwamizu" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Email (optional)</label>
+                <input type="email" value={newAthleteForm.email} onChange={(e) => setNewAthleteForm({ ...newAthleteForm, email: e.target.value })} placeholder="athlete@performance.com" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Weight (lbs)</label>
+                  <input type="number" value={newAthleteForm.weight_lbs} onChange={(e) => setNewAthleteForm({ ...newAthleteForm, weight_lbs: e.target.value })} placeholder="178" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Status</label>
+                  <select value={newAthleteForm.status} onChange={(e) => setNewAthleteForm({ ...newAthleteForm, status: e.target.value })} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px', fontSize: '14px', color: '#ffffff', outline: 'none', cursor: 'pointer' }}>
+                    <option value="On Track">On Track</option>
+                    <option value="Flagged">Flagged</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Access Code</label>
+                <input type="text" value={newAthleteForm.access_code} onChange={(e) => setNewAthleteForm({ ...newAthleteForm, access_code: e.target.value })} placeholder="Auto-generated from name" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: '6px 0 0 0' }}>This (or the athlete's full name) is what they'll use to log into the portal.</p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setShowAddAthleteModal(false)} style={{ backgroundColor: 'transparent', border: '1px solid #1f262e', color: '#9ca3af', fontWeight: 'bold', padding: '10px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Cancel</button>
+                <button type="submit" style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}>Add Athlete</button>
               </div>
             </form>
           </div>
