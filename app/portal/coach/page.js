@@ -137,15 +137,64 @@ export default function CoachingDashboard() {
   const [showAddAthleteModal, setShowAddAthleteModal] = useState(false);
   const [newAthleteForm, setNewAthleteForm] = useState({ name: '', email: '', access_code: '', weight_lbs: '', status: 'On Track' });
 
-  // Verify access key to ensure only YOU can register/view this portal
-  const handleVerifyKey = (e) => {
+  // System Settings: change coach password
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+  const [passwordStatus, setPasswordStatus] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // Verify access key against the hashed password stored in the database (via a
+  // function that only ever returns true/false - the hash itself never reaches the browser)
+  const handleVerifyKey = async (e) => {
     e.preventDefault();
-    if (accessKey === 'COACH_SECURE_2026') {
-      setIsAuthorized(true);
-      setAuthError('');
-      localStorage.setItem('coach_authenticated', 'true');
-    } else {
-      setAuthError('Invalid registration credentials. Access Denied.');
+    setAuthError('');
+    try {
+      const { data, error } = await supabase.rpc('verify_coach_password', { input_password: accessKey });
+      if (error) throw error;
+      if (data === true) {
+        setIsAuthorized(true);
+        localStorage.setItem('coach_authenticated', 'true');
+      } else {
+        setAuthError('Invalid registration credentials. Access Denied.');
+      }
+    } catch (err) {
+      setAuthError(`❌ ${err.message}`);
+    }
+  };
+
+  // Change the coach password. Verification and hashing both happen in the
+  // database function - only true/false and the new password (which the
+  // function immediately hashes) ever cross the wire.
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordStatus('');
+
+    if (passwordForm.next.length < 8) {
+      setPasswordStatus('⚠️ New password must be at least 8 characters.');
+      return;
+    }
+    if (passwordForm.next !== passwordForm.confirm) {
+      setPasswordStatus('⚠️ New password and confirmation do not match.');
+      return;
+    }
+
+    try {
+      setChangingPassword(true);
+      const { data, error } = await supabase.rpc('change_coach_password', {
+        current_password: passwordForm.current,
+        new_password: passwordForm.next
+      });
+      if (error) throw error;
+
+      if (data === true) {
+        setPasswordStatus('✅ Password updated. Use your new password next time you log in.');
+        setPasswordForm({ current: '', next: '', confirm: '' });
+      } else {
+        setPasswordStatus('❌ Current password is incorrect.');
+      }
+    } catch (err) {
+      setPasswordStatus(`❌ ${err.message}`);
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -1120,7 +1169,7 @@ export default function CoachingDashboard() {
             </button>
             <button title="Calendar" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><Calendar size={18} /> {sidebarExpanded && 'Calendar'}</button>
             <button title="Messages" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><MessageSquare size={18} /> {sidebarExpanded && 'Messages'}</button>
-            <button title="System Settings" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', backgroundColor: 'transparent', color: '#9ca3af', textAlign: 'left' }}><Settings size={18} /> {sidebarExpanded && 'System Settings'}</button>
+            <button onClick={() => setActiveTab('settings')} title="System Settings" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '12px', width: '100%', padding: sidebarExpanded ? '12px 16px' : '12px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: activeTab === 'settings' ? '#dc2626' : 'transparent', color: '#ffffff', textAlign: 'left' }}><Settings size={18} /> {sidebarExpanded && 'System Settings'}</button>
           </nav>
         </div>
 
@@ -1869,6 +1918,46 @@ export default function CoachingDashboard() {
                   <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>Build one above, or push a workout in the Workouts tab and save it as a template.</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: SYSTEM SETTINGS */}
+        {activeTab === 'settings' && (
+          <div style={{ boxSizing: 'border-box' }}>
+            <div style={{ marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '26px', fontWeight: '900', margin: '0' }}>System Settings</h2>
+              <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0 0' }}>Manage your coach access.</p>
+            </div>
+
+            <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', borderRadius: '12px', padding: '24px', maxWidth: '440px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 4px 0' }}>Change Password</h3>
+              <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 20px 0' }}>This is the password that gates the coach dashboard on this device and anyone else's who has it.</p>
+
+              <form onSubmit={handleChangePassword}>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Current Password</label>
+                  <input type="password" required value={passwordForm.current} onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>New Password</label>
+                  <input type="password" required value={passwordForm.next} onChange={(e) => setPasswordForm({ ...passwordForm, next: e.target.value })} placeholder="At least 8 characters" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Confirm New Password</label>
+                  <input type="password" required value={passwordForm.confirm} onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+
+                <button type="submit" disabled={changingPassword} style={{ backgroundColor: '#dc2626', color: '#ffffff', border: 'none', fontWeight: 'bold', padding: '10px 20px', borderRadius: '8px', cursor: changingPassword ? 'default' : 'pointer', fontSize: '13px', opacity: changingPassword ? 0.7 : 1 }}>
+                  {changingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+
+                {passwordStatus && (
+                  <p style={{ fontSize: '13px', color: '#fbbf24', margin: '14px 0 0 0', fontWeight: '600' }}>
+                    {passwordStatus}
+                  </p>
+                )}
+              </form>
             </div>
           </div>
         )}

@@ -89,20 +89,19 @@ export default function AthleteGatePortal() {
     }
   }, [athleteView, currentAthlete]);
 
-  // Validate athlete against database checking BOTH access code and name matches cleanly
+  // Validate athlete against database checking BOTH access code and name matches cleanly.
+  // Uses a database function so only the one matching row ever comes back to the
+  // browser, instead of pulling every athlete's data just to check one login.
   const handleAthleteLogin = async (e) => {
     e.preventDefault();
-    const input = athleteIdentifier.trim().toLowerCase();
+    const input = athleteIdentifier.trim();
     if (!input) return;
 
     try {
       setAuthError('');
       setLoadingWorkout(true);
-      
-      // Pull down roster rows safely without strict row count constraints
-      const { data: athletesData, error } = await supabase
-        .from('athletes')
-        .select('*');
+
+      const { data, error } = await supabase.rpc('find_athlete_by_identifier', { identifier: input });
 
       if (error) {
         console.error("Supabase pull mismatch:", error.message);
@@ -112,11 +111,7 @@ export default function AthleteGatePortal() {
         return;
       }
 
-      // Find a clean matching profile row using robust JavaScript filtering
-      const athleteData = athletesData?.find(a => 
-        (a.access_code && String(a.access_code).toLowerCase() === input) ||
-        (a.name && String(a.name).toLowerCase() === input)
-      );
+      const athleteData = Array.isArray(data) ? data[0] : data;
 
       if (!athleteData) {
         setAuthError('❌ Profile row not found. Check spelling or use your unique Sheet Access Code.');
