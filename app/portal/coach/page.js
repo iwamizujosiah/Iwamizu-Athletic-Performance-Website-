@@ -988,30 +988,13 @@ export default function CoachingDashboard() {
     setActiveTab('workouts');
   };
 
-  // Suggest an access code in the same IW-XX-0000 format used elsewhere in the app
-  const generateAccessCode = (name) => {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const initials = parts.length > 0
-      ? (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase()
-      : 'XX';
-    const digits = Math.floor(1000 + Math.random() * 9000);
-    return `IW-${initials}-${digits}`;
-  };
-
   const openAddAthleteModal = () => {
     setNewAthleteForm({ name: '', email: '', access_code: '', weight_lbs: '', status: 'On Track' });
     setShowAddAthleteModal(true);
   };
 
-  const handleAthleteNameChange = (name) => {
-    setNewAthleteForm(prev => ({
-      ...prev,
-      name,
-      access_code: prev.access_code && prev.access_code !== generateAccessCode(prev.name) ? prev.access_code : (name.trim() ? generateAccessCode(name) : '')
-    }));
-  };
-
-  // Create a new athlete profile in the roster
+  // Create a new athlete profile in the roster. Access code is whatever the
+  // coach types in, or none at all - no auto-generated codes handed out.
   const handleSaveAthlete = async (e) => {
     e.preventDefault();
     if (!newAthleteForm.name.trim()) return;
@@ -1019,7 +1002,7 @@ export default function CoachingDashboard() {
     const payload = {
       name: newAthleteForm.name.trim(),
       email: newAthleteForm.email.trim() || null,
-      access_code: newAthleteForm.access_code.trim() || generateAccessCode(newAthleteForm.name),
+      access_code: newAthleteForm.access_code.trim() || null,
       weight_lbs: newAthleteForm.weight_lbs ? parseInt(newAthleteForm.weight_lbs, 10) : null,
       status: newAthleteForm.status,
       streak_percentage: 100
@@ -2068,7 +2051,7 @@ export default function CoachingDashboard() {
             <form onSubmit={handleSaveAthlete}>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Full Name</label>
-                <input type="text" required value={newAthleteForm.name} onChange={(e) => handleAthleteNameChange(e.target.value)} placeholder="e.g. Katey Iwamizu" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                <input type="text" required value={newAthleteForm.name} onChange={(e) => setNewAthleteForm({ ...newAthleteForm, name: e.target.value })} placeholder="e.g. Katey Iwamizu" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
               </div>
 
               <div style={{ marginBottom: '14px' }}>
@@ -2091,9 +2074,9 @@ export default function CoachingDashboard() {
               </div>
 
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Access Code</label>
-                <input type="text" value={newAthleteForm.access_code} onChange={(e) => setNewAthleteForm({ ...newAthleteForm, access_code: e.target.value })} placeholder="Auto-generated from name" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
-                <p style={{ fontSize: '11px', color: '#6b7280', margin: '6px 0 0 0' }}>This (or the athlete's full name) is what they'll use to log into the portal.</p>
+                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', display: 'block', marginBottom: '6px', letterSpacing: '0.05em' }}>Access Code (optional)</label>
+                <input type="text" value={newAthleteForm.access_code} onChange={(e) => setNewAthleteForm({ ...newAthleteForm, access_code: e.target.value })} placeholder="e.g. IW-KI-7909" style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', borderRadius: '8px', padding: '10px 12px', fontSize: '14px', color: '#ffffff', outline: 'none', boxSizing: 'border-box' }} />
+                <p style={{ fontSize: '11px', color: '#6b7280', margin: '6px 0 0 0' }}>You set this yourself now - nothing is auto-generated. Leave it blank and they can still log in with their full name.</p>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
