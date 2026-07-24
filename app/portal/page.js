@@ -5,7 +5,8 @@ export const dynamic = "force-dynamic";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import {
-  Dumbbell, Timer, CheckCircle, Activity, Award, User, Lock, ArrowRight, Zap, Target, Flame, X, Repeat
+  Dumbbell, Timer, CheckCircle, Activity, Award, User, Lock, ArrowRight, Zap, Target, Flame, X, Repeat,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 
 export default function AthleteGatePortal() {
@@ -26,6 +27,16 @@ export default function AthleteGatePortal() {
   const [itemAlternatesMap, setItemAlternatesMap] = useState({});
   const [exerciseSwaps, setExerciseSwaps] = useState({});
   const [swapPickerOpenFor, setSwapPickerOpenFor] = useState(null);
+
+  // Sidebar Navigation & Calendar View States
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [athleteView, setAthleteView] = useState('today'); // 'today' | 'calendar'
+  const [allWorkouts, setAllWorkouts] = useState([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   // Performance Dashboard Data States (Mock aggregates matching image structure)
   const [metrics, setMetrics] = useState({
@@ -51,7 +62,26 @@ export default function AthleteGatePortal() {
       setIsAuthenticated(true);
       fetchLatestWorkout(parsedProfile.id);
     }
+    const savedSidebarPref = localStorage.getItem('athlete_sidebar_expanded');
+    if (savedSidebarPref === 'true') {
+      setSidebarExpanded(true);
+    }
   }, []);
+
+  const toggleSidebar = () => {
+    setSidebarExpanded(prev => {
+      const next = !prev;
+      localStorage.setItem('athlete_sidebar_expanded', String(next));
+      return next;
+    });
+  };
+
+  // Lazy-load the full workout calendar the first time the athlete opens that view
+  useEffect(() => {
+    if (athleteView === 'calendar' && currentAthlete && allWorkouts.length === 0 && !calendarLoading) {
+      loadAllWorkouts(currentAthlete.id);
+    }
+  }, [athleteView, currentAthlete]);
 
   // Validate athlete against database checking BOTH access code and name matches cleanly
   const handleAthleteLogin = async (e) => {
@@ -100,20 +130,52 @@ export default function AthleteGatePortal() {
     }
   };
 
-  // Fetch the latest master protocol prescribed by the coach
+  // Load a specific workout's exercise items and resolve alternate/swap options for it
+  async function loadWorkoutDetail(workoutHeader) {
+    setActiveWorkout(workoutHeader);
+    setCompletedSets({});
+    setExerciseSwaps({});
+
+    const { data: itemsData, error: itemsErr } = await supabase
+      .from('workout_items')
+      .select('*')
+      .eq('workout_id', workoutHeader.id)
+      .order('order_index', { ascending: true });
+
+    if (itemsErr) throw itemsErr;
+    setWorkoutItems(itemsData || []);
+    loadAlternateOptions(itemsData || []);
+  }
+
+  // Fetch whichever workout is scheduled for today; falls back to the most recently
+  // created workout for legacy/undated rows, or a demo protocol if nothing exists yet
   async function fetchLatestWorkout(athleteId) {
     try {
       setLoadingWorkout(true);
-      
-      const { data: workoutHeader, error: headerErr } = await supabase
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      let { data: workoutHeader, error: headerErr } = await supabase
         .from('workouts')
         .select('*')
         .eq('athlete_id', athleteId)
+        .eq('scheduled_date', todayStr)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (headerErr) throw headerErr;
+
+      if (!workoutHeader) {
+        const fallback = await supabase
+          .from('workouts')
+          .select('*')
+          .eq('athlete_id', athleteId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (fallback.error) throw fallback.error;
+        workoutHeader = fallback.data;
+      }
 
       if (!workoutHeader) {
         // Fallback display playbook if no live relational data has been pushed yet
@@ -129,17 +191,7 @@ export default function AthleteGatePortal() {
         return;
       }
 
-      setActiveWorkout(workoutHeader);
-
-      const { data: itemsData, error: itemsErr } = await supabase
-        .from('workout_items')
-        .select('*')
-        .eq('workout_id', workoutHeader.id)
-        .order('order_index', { ascending: true });
-
-      if (itemsErr) throw itemsErr;
-      setWorkoutItems(itemsData || []);
-      loadAlternateOptions(itemsData || []);
+      await loadWorkoutDetail(workoutHeader);
 
     } catch (err) {
       console.error("Failed loading performance targets:", err.message);
@@ -147,6 +199,38 @@ export default function AthleteGatePortal() {
       setLoadingWorkout(false);
     }
   }
+
+  // Fetch every workout ever scheduled for this athlete, for the Calendar view
+  async function loadAllWorkouts(athleteId) {
+    try {
+      setCalendarLoading(true);
+      const { data, error } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .order('scheduled_date', { ascending: true });
+
+      if (error) throw error;
+      setAllWorkouts(data || []);
+    } catch (err) {
+      console.error("Failed loading workout calendar:", err.message);
+    } finally {
+      setCalendarLoading(false);
+    }
+  }
+
+  // Open a specific calendar day's workout in the modal
+  const openWorkoutForDate = async (workout) => {
+    try {
+      setLoadingWorkout(true);
+      setShowWorkoutModal(true);
+      await loadWorkoutDetail(workout);
+    } catch (err) {
+      console.error("Failed loading that day's workout:", err.message);
+    } finally {
+      setLoadingWorkout(false);
+    }
+  };
 
   // Resolve which alternate/modified exercises are available for each prescribed item,
   // so athletes can swap movements (e.g. no barbell available -> goblet squat instead)
@@ -257,6 +341,8 @@ export default function AthleteGatePortal() {
     setActiveWorkout(null);
     setWorkoutItems([]);
     setShowWorkoutModal(false);
+    setAthleteView('today');
+    setAllWorkouts([]);
   };
 
   // Group workout items into whatever sections the coach built the workout with,
@@ -409,84 +495,189 @@ export default function AthleteGatePortal() {
     );
   };
 
+  // Build the Sun-Sat grid of cells for the currently viewed calendar month
+  const renderCalendarGrid = () => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDayOfWeek = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const workoutsByDate = {};
+    allWorkouts.forEach(w => {
+      if (!w.scheduled_date) return;
+      if (!workoutsByDate[w.scheduled_date]) workoutsByDate[w.scheduled_date] = [];
+      workoutsByDate[w.scheduled_date].push(w);
+    });
+
+    const cells = [];
+    for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+    for (let day = 1; day <= totalDays; day++) cells.push(day);
+
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <button onClick={() => setCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))} style={{ backgroundColor: '#111111', border: '1px solid #1f262e', color: '#ffffff', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer' }}>‹</button>
+          <h3 style={{ fontSize: '16px', fontWeight: '900', margin: '0' }}>{calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h3>
+          <button onClick={() => setCalendarMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))} style={{ backgroundColor: '#111111', border: '1px solid #1f262e', color: '#ffffff', width: '32px', height: '32px', borderRadius: '8px', cursor: 'pointer' }}>›</button>
+        </div>
+
+        {calendarLoading ? (
+          <p style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '20px 0' }}>Loading calendar...</p>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '6px' }}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, idx) => (
+                <div key={idx} style={{ textAlign: 'center', fontSize: '10px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase' }}>{d}</div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+              {cells.map((day, idx) => {
+                if (day === null) return <div key={idx} />;
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayWorkouts = workoutsByDate[dateStr] || [];
+                const hasWorkout = dayWorkouts.length > 0;
+                const isToday = dateStr === todayStr;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => hasWorkout && openWorkoutForDate(dayWorkouts[0])}
+                    disabled={!hasWorkout}
+                    title={hasWorkout ? dayWorkouts[0].title : ''}
+                    style={{
+                      aspectRatio: '1',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: hasWorkout ? 'rgba(220, 38, 38, 0.12)' : '#111111',
+                      border: isToday ? '1px solid #dc2626' : '1px solid #1f262e',
+                      borderRadius: '8px',
+                      color: hasWorkout ? '#ffffff' : '#4b5563',
+                      fontSize: '12px', fontWeight: isToday ? '900' : '600',
+                      cursor: hasWorkout ? 'pointer' : 'default',
+                      padding: '4px'
+                    }}
+                  >
+                    {day}
+                    {hasWorkout && <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#dc2626', marginTop: '2px' }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#000000', color: '#ffffff', fontFamily: 'sans-serif', padding: '16px', boxSizing: 'border-box' }}>
-      
-      {/* BRAND HEADER LAYER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #111', paddingBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ backgroundColor: '#111', padding: '6px', borderRadius: '6px', border: '1px solid #222', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+    <div style={{ minHeight: '100vh', backgroundColor: '#000000', color: '#ffffff', fontFamily: 'sans-serif', display: 'flex', boxSizing: 'border-box' }}>
+
+      {/* COLLAPSIBLE SIDEBAR NAVIGATION */}
+      <aside style={{ width: sidebarExpanded ? '200px' : '60px', backgroundColor: '#0a0a0a', borderRight: '1px solid #1f262e', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: sidebarExpanded ? '16px' : '16px 8px', flexShrink: 0, boxSizing: 'border-box', transition: 'width 0.18s ease, padding 0.18s ease', overflow: 'hidden', minHeight: '100vh' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'space-between' : 'center', marginBottom: '24px', gap: '6px' }}>
+            {sidebarExpanded && (
+              <div style={{ backgroundColor: '#111', padding: '4px', borderRadius: '6px', border: '1px solid #222', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </div>
+            )}
+            <button onClick={toggleSidebar} title={sidebarExpanded ? 'Collapse' : 'Expand'} style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '8px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#9ca3af', flexShrink: 0 }}>
+              {sidebarExpanded ? '‹' : '›'}
+            </button>
           </div>
-          <div>
-            <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: '900', letterSpacing: '0.05em', display: 'block', lineHeight: '1' }}>IWAMIZU</span>
-            <span style={{ fontSize: '8px', color: '#9ca3af', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Athletic Performance</span>
-          </div>
-        </div>
-        <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#dc2626', margin: '0' }}>{currentAthlete?.name || 'Athlete'}</h2>
-      </div>
 
-      {/* HOMESCREEN APP PRO-TIP BANNER */}
-      <div style={{ backgroundColor: '#111111', border: '1px solid #222222', borderRadius: '10px', padding: '14px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
-        <span style={{ fontSize: '20px' }}>💡</span>
-        <p style={{ margin: '0', fontSize: '13px', color: '#d1d5db', fontWeight: '500', lineHeight: '1.4' }}>
-          <strong style={{ color: '#ffffff' }}>Pro-Tip:</strong> Tap "Share" and "Add to Home Screen" to use this as an app.
-        </p>
-      </div>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button onClick={() => setAthleteView('today')} title="Today" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'today' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
+              <Flame size={16} /> {sidebarExpanded && 'Today'}
+            </button>
+            <button onClick={() => setAthleteView('calendar')} title="Calendar" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: athleteView === 'calendar' ? '#dc2626' : 'transparent', color: '#ffffff' }}>
+              <CalendarIcon size={16} /> {sidebarExpanded && 'Calendar'}
+            </button>
+          </nav>
+        </div>
 
-      {/* SECTION 1: PROGRESS OVERVIEW BANNER */}
-      <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#dc2626', margin: '0 0 16px 0', letterSpacing: '0.02em' }}>Progress Overview</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '32px' }}>
-        <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
-          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Sessions Missed</span>
-          <span style={{ fontSize: '22px', fontWeight: '900' }}>{metrics.sessionsMissed}</span>
+        <div>
+          {sidebarExpanded && <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#dc2626', margin: '0 0 8px 4px', whiteSpace: 'nowrap' }}>{currentAthlete?.name || 'Athlete'}</p>}
+          <button onClick={handleLogout} title="Lock Dashboard" style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarExpanded ? 'flex-start' : 'center', gap: '10px', width: '100%', padding: sidebarExpanded ? '10px 12px' : '10px', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: 'transparent', color: '#4b5563' }}>
+            <Lock size={14} /> {sidebarExpanded && 'Lock Dashboard'}
+          </button>
         </div>
-        <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
-          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Volume (Sets)</span>
-          <span style={{ fontSize: '22px', fontWeight: '900' }}>{metrics.volumeSets}</span>
-        </div>
-        <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
-          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Volume (Reps)</span>
-          <span style={{ fontSize: '22px', fontWeight: '900' }}>{metrics.volumeReps}</span>
-        </div>
-        <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
-          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Load PBs</span>
-          <span style={{ fontSize: '22px', fontWeight: '900', color: '#fbbf24' }}>{metrics.loadPBs}</span>
-        </div>
-      </div>
+      </aside>
 
-      {/* SECTION 2: ADVANCED PERFORMANCE METRICS */}
-      <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#dc2626', margin: '0 0 16px 0', letterSpacing: '0.02em' }}>Advanced Performance</h3>
-      <div style={{ backgroundColor: '#0a0a0a', border: '1px solid #1c232b', borderRadius: '12px', padding: '16px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #111' }}>
-          <span style={{ fontSize: '15px', fontWeight: 'bold' }}>5-10-5 Time</span>
-          <span style={{ fontSize: '15px', fontWeight: '900', color: '#60a5fa' }}>{advancedPerformance.proAgility}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #111' }}>
-          <span style={{ fontSize: '15px', fontWeight: 'bold' }}>Vertical Jump</span>
-          <span style={{ fontSize: '15px', fontWeight: '900', color: '#4ade80' }}>{advancedPerformance.verticalJump}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #111' }}>
-          <span style={{ fontSize: '15px', fontWeight: 'bold' }}>Flying 10</span>
-          <span style={{ fontSize: '15px', fontWeight: '900', color: '#fbbf24' }}>{advancedPerformance.flying10}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0' }}>
-          <span style={{ fontSize: '15px', fontWeight: 'bold' }}>Flying 20</span>
-          <span style={{ fontSize: '15px', fontWeight: '900', color: '#fbbf24' }}>{advancedPerformance.flying20}</span>
-        </div>
-      </div>
+      {/* MAIN CONTENT */}
+      <main style={{ flex: 1, padding: '16px', boxSizing: 'border-box', minWidth: 0 }}>
 
-      {/* CORE INTERACTIVE WORKOUT LAUNCH BUTTON */}
-      <button 
-        onClick={() => setShowWorkoutModal(true)}
-        style={{ width: '100%', backgroundColor: '#ff0000', color: '#ffffff', border: 'none', borderRadius: '12px', padding: '18px', fontSize: '16px', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 6px 20px rgba(255, 0, 0, 0.3)', marginBottom: '16px' }}
-      >
-        🔥 Today's Assigned Workout
-      </button>
+        {athleteView === 'today' && (
+          <>
+            {/* HOMESCREEN APP PRO-TIP BANNER */}
+            <div style={{ backgroundColor: '#111111', border: '1px solid #222222', borderRadius: '10px', padding: '14px', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
+              <span style={{ fontSize: '20px' }}>💡</span>
+              <p style={{ margin: '0', fontSize: '13px', color: '#d1d5db', fontWeight: '500', lineHeight: '1.4' }}>
+                <strong style={{ color: '#ffffff' }}>Pro-Tip:</strong> Tap "Share" and "Add to Home Screen" to use this as an app.
+              </p>
+            </div>
 
-      <div onClick={handleLogout} style={{ textAlign: 'center', fontSize: '13px', color: '#444444', cursor: 'pointer', padding: '8px 0' }}>
-        Lock Dashboard
-      </div>
+            {/* SECTION 1: PROGRESS OVERVIEW BANNER */}
+            <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#dc2626', margin: '0 0 16px 0', letterSpacing: '0.02em' }}>Progress Overview</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '32px' }}>
+              <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Sessions Missed</span>
+                <span style={{ fontSize: '22px', fontWeight: '900' }}>{metrics.sessionsMissed}</span>
+              </div>
+              <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Volume (Sets)</span>
+                <span style={{ fontSize: '22px', fontWeight: '900' }}>{metrics.volumeSets}</span>
+              </div>
+              <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Volume (Reps)</span>
+                <span style={{ fontSize: '22px', fontWeight: '900' }}>{metrics.volumeReps}</span>
+              </div>
+              <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '10px', padding: '16px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Load PBs</span>
+                <span style={{ fontSize: '22px', fontWeight: '900', color: '#fbbf24' }}>{metrics.loadPBs}</span>
+              </div>
+            </div>
+
+            {/* SECTION 2: ADVANCED PERFORMANCE METRICS */}
+            <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#dc2626', margin: '0 0 16px 0', letterSpacing: '0.02em' }}>Advanced Performance</h3>
+            <div style={{ backgroundColor: '#0a0a0a', border: '1px solid #1c232b', borderRadius: '12px', padding: '16px', marginBottom: '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #111' }}>
+                <span style={{ fontSize: '15px', fontWeight: 'bold' }}>5-10-5 Time</span>
+                <span style={{ fontSize: '15px', fontWeight: '900', color: '#60a5fa' }}>{advancedPerformance.proAgility}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #111' }}>
+                <span style={{ fontSize: '15px', fontWeight: 'bold' }}>Vertical Jump</span>
+                <span style={{ fontSize: '15px', fontWeight: '900', color: '#4ade80' }}>{advancedPerformance.verticalJump}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #111' }}>
+                <span style={{ fontSize: '15px', fontWeight: 'bold' }}>Flying 10</span>
+                <span style={{ fontSize: '15px', fontWeight: '900', color: '#fbbf24' }}>{advancedPerformance.flying10}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0' }}>
+                <span style={{ fontSize: '15px', fontWeight: 'bold' }}>Flying 20</span>
+                <span style={{ fontSize: '15px', fontWeight: '900', color: '#fbbf24' }}>{advancedPerformance.flying20}</span>
+              </div>
+            </div>
+
+            {/* CORE INTERACTIVE WORKOUT LAUNCH BUTTON */}
+            <button
+              onClick={() => setShowWorkoutModal(true)}
+              style={{ width: '100%', backgroundColor: '#ff0000', color: '#ffffff', border: 'none', borderRadius: '12px', padding: '18px', fontSize: '16px', fontWeight: '900', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 6px 20px rgba(255, 0, 0, 0.3)', marginBottom: '16px' }}
+            >
+              🔥 Today's Assigned Workout
+            </button>
+          </>
+        )}
+
+        {athleteView === 'calendar' && (
+          <>
+            <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#dc2626', margin: '0 0 16px 0', letterSpacing: '0.02em' }}>My Calendar</h3>
+            <div style={{ backgroundColor: '#111111', border: '1px solid #1f262e', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+              {renderCalendarGrid()}
+            </div>
+            <p style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center' }}>Tap a highlighted day to view that session.</p>
+          </>
+        )}
+      </main>
 
       {/* DYNAMIC FULL-SCREEN INTERACTIVE WORKOUT MODAL */}
       {showWorkoutModal && (

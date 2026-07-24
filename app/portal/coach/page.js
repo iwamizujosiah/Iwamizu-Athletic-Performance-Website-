@@ -95,6 +95,9 @@ export default function CoachingDashboard() {
   const [workoutName, setWorkoutName] = useState('Championship GPP Protocol');
   const [currentPrescription, setCurrentPrescription] = useState([]);
   const [saveStatus, setSaveStatus] = useState('');
+  const [workoutScheduledDate, setWorkoutScheduledDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [repeatMode, setRepeatMode] = useState('none'); // none | daily | weekly | monthly
+  const [repeatCount, setRepeatCount] = useState(1);
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState(false);
   const [saveAsTemplateName, setSaveAsTemplateName] = useState('');
   const [rxTargetSection, setRxTargetSection] = useState('Activation'); // which section newly-clicked exercises land in
@@ -636,53 +639,77 @@ export default function CoachingDashboard() {
     setCurrentPrescription(currentPrescription.filter(item => item.uniqueId !== uniqueId));
   };
 
-  // Commit Workout Prescription Live to Relational Supabase Tables
+  // Compute the list of scheduled dates a push should land on, based on the repeat setting
+  const computeScheduledDates = (startDateStr, mode, count) => {
+    const dates = [];
+    const safeCount = mode === 'none' ? 1 : Math.min(Math.max(parseInt(count, 10) || 1, 1), 104);
+    for (let i = 0; i < safeCount; i++) {
+      const d = new Date(`${startDateStr}T00:00:00`);
+      if (mode === 'daily') d.setDate(d.getDate() + i);
+      else if (mode === 'weekly') d.setDate(d.getDate() + i * 7);
+      else if (mode === 'monthly') d.setMonth(d.getMonth() + i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    return dates;
+  };
+
+  // Commit Workout Prescription Live to Relational Supabase Tables — one row per
+  // scheduled date, so a coach can build out a week/month/quarter/year in one push
   const handleSaveWorkout = async () => {
     if (!targetAthleteId || currentPrescription.length === 0) {
       setSaveStatus('⚠️ Please select an athlete and add exercises.');
       return;
     }
 
+    const scheduledDates = computeScheduledDates(workoutScheduledDate, repeatMode, repeatCount);
+
     try {
-      setSaveStatus('Publishing routines to cloud database...');
-      
-      const { data: workoutData, error: workoutErr } = await supabase
-        .from('workouts')
-        .insert([{
-          athlete_id: targetAthleteId,
-          title: workoutName
-        }])
-        .select()
-        .single();
+      setSaveStatus(`Publishing ${scheduledDates.length > 1 ? `${scheduledDates.length} sessions` : 'routine'} to cloud database...`);
 
-      if (workoutErr) throw workoutErr;
+      for (const dateStr of scheduledDates) {
+        const { data: workoutData, error: workoutErr } = await supabase
+          .from('workouts')
+          .insert([{
+            athlete_id: targetAthleteId,
+            title: workoutName,
+            scheduled_date: dateStr
+          }])
+          .select()
+          .single();
 
-      const newWorkoutId = workoutData.id;
+        if (workoutErr) throw workoutErr;
 
-      const itemsToInsert = currentPrescription.map((item, idx) => ({
-        workout_id: newWorkoutId,
-        exercise_name: item.name,
-        block_type: item.block_type,
-        modality: item.modality || 'Bodyweight', 
-        tracking_unit: item.tracking_unit,
-        sets: parseInt(item.sets) || 3,
-        reps: item.reps ? String(item.reps) : null,
-        load_value: item.load_value ? String(item.load_value) : null,
-        seconds_value: item.seconds_value ? String(item.seconds_value) : null,
-        distance_value: item.distance_value ? String(item.distance_value) : null,
-        rest_timer: item.rest_timer || '60s',
-        order_index: idx
-      }));
+        const newWorkoutId = workoutData.id;
 
-      const { error: itemsErr } = await supabase
-        .from('workout_items')
-        .insert(itemsToInsert);
+        const itemsToInsert = currentPrescription.map((item, idx) => ({
+          workout_id: newWorkoutId,
+          exercise_name: item.name,
+          block_type: item.block_type,
+          modality: item.modality || 'Bodyweight',
+          tracking_unit: item.tracking_unit,
+          sets: parseInt(item.sets) || 3,
+          reps: item.reps ? String(item.reps) : null,
+          load_value: item.load_value ? String(item.load_value) : null,
+          seconds_value: item.seconds_value ? String(item.seconds_value) : null,
+          distance_value: item.distance_value ? String(item.distance_value) : null,
+          rest_timer: item.rest_timer || '60s',
+          order_index: idx
+        }));
 
-      if (itemsErr) throw itemsErr;
+        const { error: itemsErr } = await supabase
+          .from('workout_items')
+          .insert(itemsToInsert);
 
-      setSaveStatus('✅ Workout successfully pushed to Athlete Portal!');
-      setCurrentPrescription([]); 
-      
+        if (itemsErr) throw itemsErr;
+      }
+
+      setSaveStatus(scheduledDates.length > 1
+        ? `✅ Pushed ${scheduledDates.length} sessions (${scheduledDates[0]} → ${scheduledDates[scheduledDates.length - 1]}) to the Athlete Portal!`
+        : '✅ Workout successfully pushed to Athlete Portal!');
+      setCurrentPrescription([]);
+      setRepeatMode('none');
+      setRepeatCount(1);
+
     } catch (err) {
       console.error("Relational schema write failure:", err.message);
       setSaveStatus(`❌ Error saving program: ${err.message}`);
@@ -1210,17 +1237,50 @@ export default function CoachingDashboard() {
             </div>
 
             {/* TOP BAR: GLOBAL CONTROL ASSIGNMENT PANEL */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px', marginBottom: '24px' }}>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>1. Assign Target Athlete</label>
-                <select value={targetAthleteId} onChange={(e) => setTargetAthleteId(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px' }}>
-                  {athletes.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+            <div style={{ backgroundColor: '#12161a', border: '1px solid #1f262e', padding: '20px', borderRadius: '12px', marginBottom: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>1. Assign Target Athlete</label>
+                  <select value={targetAthleteId} onChange={(e) => setTargetAthleteId(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px' }}>
+                    {athletes.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>2. Program Title Card</label>
+                  <input type="text" value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }} />
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>2. Program Title Card</label>
-                <input type="text" value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: repeatMode === 'none' ? '1fr 1fr' : '1fr 1fr 1fr', gap: '20px', alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>3. Scheduled Date</label>
+                  <input type="date" value={workoutScheduledDate} onChange={(e) => setWorkoutScheduledDate(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', colorScheme: 'dark' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>4. Build Out</label>
+                  <select value={repeatMode} onChange={(e) => setRepeatMode(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', cursor: 'pointer' }}>
+                    <option value="none">Just this one day</option>
+                    <option value="daily">Repeat Daily</option>
+                    <option value="weekly">Repeat Weekly</option>
+                    <option value="monthly">Repeat Monthly</option>
+                  </select>
+                </div>
+                {repeatMode !== 'none' && (
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', color: '#9ca3af', letterSpacing: '0.05em', display: 'block', marginBottom: '6px' }}>Occurrences</label>
+                    <input type="number" min="1" max="104" value={repeatCount} onChange={(e) => setRepeatCount(e.target.value)} style={{ width: '100%', backgroundColor: '#1c232b', border: '1px solid #1f262e', padding: '10px', borderRadius: '8px', color: '#ffffff', outline: 'none', fontSize: '14px', boxSizing: 'border-box' }} />
+                  </div>
+                )}
               </div>
+
+              {repeatMode !== 'none' && (() => {
+                const previewDates = computeScheduledDates(workoutScheduledDate, repeatMode, repeatCount);
+                return (
+                  <p style={{ fontSize: '12px', color: '#60a5fa', margin: '12px 0 0 0' }}>
+                    Will create {previewDates.length} session{previewDates.length === 1 ? '' : 's'}: {previewDates[0]} → {previewDates[previewDates.length - 1]}
+                  </p>
+                );
+              })()}
             </div>
 
             {/* TWO COLUMN INTERACTIVE PALETTE */}
